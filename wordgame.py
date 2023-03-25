@@ -4,7 +4,6 @@ from kivy.uix.button import Button
 from kivy.animation import Animation
 from kivy.app import App
 from kivy.clock import Clock
-from kivy.core.window import Window
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.label import Label
@@ -18,21 +17,19 @@ class RandomLettersGrid(GridLayout):
         super().__init__(**kwargs)
 
         self.cols = 5
+        self.rows = 7
         self.spacing = [10, 10]
-        self.padding = [50, 50]
+        self.padding = [200, 50]
         self.letter_values = {'A': 10, 'B': 35, 'C': 35, 'D': 25, 'E': 10, 'F': 45, 'G': 25, 'H': 45, 'I': 10, 'J': 90, 'K': 55, 'L': 10, 'M': 35, 'N': 10, 'O': 10, 'P': 35, 'Q': 110, 'R': 10, 'S': 10, 'T': 10, 'U': 10, 'V': 45, 'W': 45, 'X': 90, 'Y': 45, 'Z': 110}
         self.letters = [[random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ") for col in range(5)] for row in range(7)]
-        self.update_letters()
         self.selected_label = None
-        self.words =["CAT", "DOG", "HEY", "BOB", "CAR", "HAT", "SUN", "MOON", "RAIN", "SNOW", "FIRE", "ICE", 
-         "FOOD", "WORK", "PLAY", "REST", "LOVE", "HOME", "MIND", "BODY", "SOUL", "MUSIC", 
-         "ART", "BOOK", "PARK", "CITY", "TOWN", "GAME", "TEAM", "FILM", "SHOW", "TIME", 
-         "JOY", "FARM", "TREE", "BIRD", "DEER", "FISH", "SHIP", "WIND", "WAVE", "SAND", 
-         "HERO", "GOLD", "WINE", "HAIL", "SNAP", "LEAF", "FOOT", "HAND", "FACE", "HAIR"]
         self.found_words = []
-
-    def on_size(self, *args):
+        self.highlighted_letter_index = random.randint(0, self.rows * self.cols - 1)
         self.update_letters()
+
+        with open('words.txt', 'r') as f:
+            # Read the contents and split them into words
+            self.words = f.read().split()
 
     def update_letters(self):
         self.clear_widgets()
@@ -42,9 +39,12 @@ class RandomLettersGrid(GridLayout):
         for row in range(7):
             for col in range(5):
                 letter = self.letters[row][col]
+                
                 label = Label(text=letter, font_size=font_size)
                 label.bind(on_touch_down=self.on_letter_click)
                 label.glow_anim = None  # initialize a glow animation for each letter
+                if row * self.cols + col == self.highlighted_letter_index:
+                    label.color = (255, 100, 50)
                 label.row = row
                 label.col = col
                 self.add_widget(label)
@@ -102,13 +102,22 @@ class RandomLettersGrid(GridLayout):
         if label1.row == label2.row or label1.col == label2.col:
             return True
         return False
-
+    
+    def on_size(self, *args):
+        self.update_letters()
 
     def swap_letters(self, label1, label2):
         row1, col1 = label1.row, label1.col
         row2, col2 = label2.row, label2.col
         self.letters[row1][col1], self.letters[row2][col2] = self.letters[row2][col2], self.letters[row1][col1]
         label1.text, label2.text = label2.text, label1.text
+
+        # Update highlighted letter index if necessary
+        if self.highlighted_letter_index == row1 * self.cols + col1:
+            self.highlighted_letter_index = row2 * self.cols + col2
+        elif self.highlighted_letter_index == row2 * self.cols + col2:
+            self.highlighted_letter_index = row1 * self.cols + col1
+
         self.update_letters()
 
     def check_words(self):
@@ -126,13 +135,18 @@ class RandomLettersGrid(GridLayout):
                             # Reset the countdown
                             app.reset_countdown()
 
+                            highlighted_letter = self.letters[self.highlighted_letter_index // self.cols][self.highlighted_letter_index % self.cols]
+                            
                             # Replace the letters with new random letters
                             for row in range(min(row1, row2), max(row1, row2)+1):
                                 for col in range(min(col1, col2), max(col1, col2)+1):
                                     points = self.letter_values.get(self.letters[row][col])
-                                    app.update_score(points)
                                     self.letters[row][col] = random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-                            
+                                    if highlighted_letter in word:
+                                        app.update_score(points * 2)
+                                    else:
+                                        app.update_score(points)
+                            self.highlighted_letter_index = random.randint(0, self.rows * self.cols - 1)
                             self.update_letters()
 
     def get_word(self, row1, col1, row2, col2):
@@ -162,10 +176,10 @@ class MyApp(App):
 
     def build(self):
 
-        self.score_label = Label(text=f"Score: {self.score}", size_hint=(1, 0.05), font_size=24)
+        self.score_label = Label(text=f"{self.score}", size_hint=(1, 0.05), font_size=24)
         
         self.gameover_label = Label(text=f"", size_hint=(1, 0.05), font_size=24)
-        self.progress_bar = ProgressBar(max=30, value=30, size_hint=(0.8, 0.05), pos_hint={'center_x': 0.5, 'y': 0.01})
+        self.progress_bar = ProgressBar(max=30, value=30, size_hint=(0.4, 0.05), pos_hint={'center_x': 0.5, 'y': 0.01})
         
         self.high_score_label = Label(text="", size_hint=(1, 0.1), font_size=24)
 
@@ -190,7 +204,7 @@ class MyApp(App):
         if self.time_left == 0:
             self.gameover_label.size_hint = (1, 0.4)
             self.score_label.text = ""
-            self.gameover_label.text = "Game over\nWould you like to play again?"
+            self.gameover_label.text = "Would you like to play again?"
             self.grid.disabled = True
             self.yes_button = Button(text="Yes", size_hint=(1, 0.5), font_size=24, background_color=(0.5, 0.5, 0.5, 0.8), color=(1, 1, 1, 1))
             self.no_button = Button(text="No", size_hint=(1, 0.5), font_size=24, background_color=(0.5, 0.5, 0.5, 0.8), color=(1, 1, 1, 1))
@@ -209,7 +223,7 @@ class MyApp(App):
 
     def restart_game(self, instance):
         self.score = 0
-        self.score_label.text = f"Score: {self.score}"
+        self.score_label.text = f"{self.score}"
         MyApp.reset_countdown(self)
         self.grid.reset_grid() 
         Clock.schedule_interval(self.count_down, 1)
@@ -225,7 +239,7 @@ class MyApp(App):
 
     def update_score(self, points):
         self.score += points
-        self.score_label.text = f"Score: {self.score}"
+        self.score_label.text = f"{self.score}"
 
     def stop_game(self, instance):
         # Add a 'Close' button
@@ -233,11 +247,11 @@ class MyApp(App):
         self.close_button.bind(on_press=self.close_app)
 
         self.box_layout.remove_widget(self.score_label)
-        self.high_score_label.text = f"High score: {self.high_score}"
+        self.high_score_label.text = f"{self.high_score}"
         self.high_score_label.size_hint = (1, 0.5)
         self.high_score_label.halign = 'center'
         self.high_score_label.valign = 'middle'
-        self.high_score_label.text += f"\n\nThanks for playing!"
+        self.high_score_label.text += f"\n\nGame over"
         self.grid.disabled = True
         self.box_layout.remove_widget(self.button_box_layout)
         if instance.text == "No":
