@@ -24,7 +24,8 @@ class RandomLettersGrid(GridLayout):
         self.letters = [[random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ") for col in range(5)] for row in range(7)]
         self.selected_label = None
         self.found_words = []
-        self.highlighted_letter_index = random.randint(0, self.rows * self.cols - 1)
+        self.highlighted_letter_index_bonus = random.randint(0, self.rows * self.cols - 1)
+        self.highlighted_letter_index_penalty = random.randint(0, self.rows * self.cols - 1)
         self.update_letters()
 
         with open('words.txt', 'r') as f:
@@ -43,8 +44,11 @@ class RandomLettersGrid(GridLayout):
                 label = Label(text=letter, font_size=font_size)
                 label.bind(on_touch_down=self.on_letter_click)
                 label.glow_anim = None  # initialize a glow animation for each letter
-                if row * self.cols + col == self.highlighted_letter_index:
-                    label.color = (255, 100, 50)
+                if row * self.cols + col == self.highlighted_letter_index_bonus:
+                    label.color = (255, 50, 150)
+
+                if row * self.cols + col == self.highlighted_letter_index_penalty:
+                    label.color = (50, 255, 150)
                 label.row = row
                 label.col = col
                 self.add_widget(label)
@@ -113,10 +117,16 @@ class RandomLettersGrid(GridLayout):
         label1.text, label2.text = label2.text, label1.text
 
         # Update highlighted letter index if necessary
-        if self.highlighted_letter_index == row1 * self.cols + col1:
-            self.highlighted_letter_index = row2 * self.cols + col2
-        elif self.highlighted_letter_index == row2 * self.cols + col2:
-            self.highlighted_letter_index = row1 * self.cols + col1
+        if self.highlighted_letter_index_bonus == row1 * self.cols + col1:
+            self.highlighted_letter_index_bonus = row2 * self.cols + col2
+        elif self.highlighted_letter_index_bonus == row2 * self.cols + col2:
+            self.highlighted_letter_index_bonus = row1 * self.cols + col1
+
+        # Update highlighted letter index if necessary
+        if self.highlighted_letter_index_penalty == row1 * self.cols + col1:
+            self.highlighted_letter_index_penalty = row2 * self.cols + col2
+        elif self.highlighted_letter_index_penalty == row2 * self.cols + col2:
+            self.highlighted_letter_index_penalty = row1 * self.cols + col1
 
         self.update_letters()
 
@@ -135,18 +145,24 @@ class RandomLettersGrid(GridLayout):
                             # Reset the countdown
                             app.reset_countdown()
 
-                            highlighted_letter = self.letters[self.highlighted_letter_index // self.cols][self.highlighted_letter_index % self.cols]
+                            highlighted_letter_bonus = self.letters[self.highlighted_letter_index_bonus // self.cols][self.highlighted_letter_index_bonus % self.cols]
+                            highlighted_letter_penalty = self.letters[self.highlighted_letter_index_penalty // self.cols][self.highlighted_letter_index_penalty % self.cols]
                             
                             # Replace the letters with new random letters
                             for row in range(min(row1, row2), max(row1, row2)+1):
                                 for col in range(min(col1, col2), max(col1, col2)+1):
                                     points = self.letter_values.get(self.letters[row][col])
                                     self.letters[row][col] = random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-                                    if highlighted_letter in word:
-                                        app.update_score(points * 2)
+                                    if highlighted_letter_bonus in word and highlighted_letter_penalty in word:
+                                        app.update_score(points)
+                                    elif highlighted_letter_bonus in word:
+                                        app.update_score(int(points * 2))
+                                    elif highlighted_letter_penalty in word:
+                                        app.update_score(int(points / 2))
                                     else:
                                         app.update_score(points)
-                            self.highlighted_letter_index = random.randint(0, self.rows * self.cols - 1)
+                            self.highlighted_letter_index_bonus = random.randint(0, self.rows * self.cols - 1)
+                            self.highlighted_letter_index_penalty = random.randint(0, self.rows * self.cols - 1)
                             self.update_letters()
 
     def get_word(self, row1, col1, row2, col2):
