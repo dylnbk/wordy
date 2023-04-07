@@ -154,11 +154,8 @@ class RandomLettersGrid(GridLayout):
                     # Store the original font size
                     self.font_size = label.font_size  
 
-                    # Increase the font size by 20%
-                    label.font_size *= 1.2  
-
-                    # Change the text color to indicate it's selected
-                    # label.color = (255, 10, 10)  
+                    # Increase the font size by 25%
+                    label.font_size *= 1.25
 
                     # Create the shadow animation
                     with label.canvas:

@@ -6,3 +6,4 @@
 # use the special word list to add additional game feature such as conundrum or riddle?
 # add visual effects to make it more attractive?
 
+# possible bug, if there are two words on the same row/column which one does the game validate? possibly add a check that forces it to check for words starting at the clicked letter
