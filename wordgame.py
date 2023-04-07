@@ -14,175 +14,341 @@ from kivy.uix.progressbar import ProgressBar
 class RandomLettersGrid(GridLayout):
 
     def __init__(self, **kwargs):
+        
+        # Initialize the parent class
         super().__init__(**kwargs)
 
+        # Set up grid properties
         self.cols = 5
         self.rows = 7
         self.spacing = [10, 10]
         self.padding = [200, 50]
+        
+        # Set up letter values
         self.letter_values = {'A': 10, 'B': 35, 'C': 35, 'D': 25, 'E': 10, 'F': 45, 'G': 25, 'H': 45, 'I': 10, 'J': 90, 'K': 55, 'L': 10, 'M': 35, 'N': 10, 'O': 10, 'P': 35, 'Q': 110, 'R': 10, 'S': 10, 'T': 10, 'U': 10, 'V': 45, 'W': 45, 'X': 90, 'Y': 45, 'Z': 110}
+        
+        # Initialize letter grid
         self.letters = [[random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ") for col in range(5)] for row in range(7)]
         self.selected_label = None
         self.found_words = []
+
+        # Indexes for special letters
         self.highlighted_letter_index_bonus = random.randint(0, self.rows * self.cols - 1)
         self.highlighted_letter_index_penalty = random.randint(0, self.rows * self.cols - 1)
+        self.highlighted_letter_index_reset = random.randint(0, self.rows * self.cols - 1)
+
+        # Ensure special letter indexes are distinct
+        while self.highlighted_letter_index_bonus == self.highlighted_letter_index_penalty or self.highlighted_letter_index_bonus == self.highlighted_letter_index_reset:
+            self.highlighted_letter_index_bonus = random.randint(0, self.rows * self.cols - 1)
+
+        while self.highlighted_letter_index_penalty == self.highlighted_letter_index_reset:
+            self.highlighted_letter_index_penalty = random.randint(0, self.rows * self.cols - 1)
+
+        # Update letter grid
         self.update_letters()
 
+        # Read words from file
         with open('words.txt', 'r') as f:
-            # Read the contents and split them into words
             self.words = f.read().split()
 
     def update_letters(self):
+        # Clear existing widgets
         self.clear_widgets()
+
+        # Calculate grid and cell sizes
         grid_width, grid_height = self.width - self.padding[0] * 2, self.height - self.padding[1] * 2
         cell_width, cell_height = grid_width / self.cols, grid_height / 7
-        font_size = min(cell_width, cell_height) * 0.8
+        font_size = min(cell_width, cell_height) * 0.9
+
+        # Add letter labels to the grid
         for row in range(7):
             for col in range(5):
                 letter = self.letters[row][col]
-                
+
                 label = Label(text=letter, font_size=font_size)
                 label.bind(on_touch_down=self.on_letter_click)
-                label.glow_anim = None  # initialize a glow animation for each letter
+
+                # initialize a glow animation for each letter
+                label.glow_anim = None  
+
+                # Set color for special letters
                 if row * self.cols + col == self.highlighted_letter_index_bonus:
                     label.color = (255, 50, 150)
 
                 if row * self.cols + col == self.highlighted_letter_index_penalty:
                     label.color = (50, 255, 150)
+
+                if row * self.cols + col == self.highlighted_letter_index_reset:
+                    label.color = (50, 50, 255)
+
+                # Set row and column for each label
                 label.row = row
                 label.col = col
-                self.add_widget(label)
+
+                # Add label to the grid
+                self.add_widget(label)  
 
     def reset_grid(self):
+
+        # Clear the letter grid
         self.clear_widgets()
+
+        # Generate new letters for the grid
         self.letters = [[random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ") for col in range(5)] for row in range(7)]
+
+        # Calculate grid and cell sizes
         grid_width, grid_height = self.width - self.padding[0] * 2, self.height - self.padding[1] * 2
         cell_width, cell_height = grid_width / self.cols, grid_height / 7
         font_size = min(cell_width, cell_height) * 0.8
+
+        # Add new letter labels to the grid
         for row in range(7):
             for col in range(5):
                 letter = self.letters[row][col]
                 label = Label(text=letter, font_size=font_size)
                 label.bind(on_touch_down=self.on_letter_click)
-                label.glow_anim = None  # initialize a glow animation for each letter
+                
+                # Initialize a glow animation for each letter
+                label.glow_anim = None  
+
                 label.row = row
                 label.col = col
                 self.add_widget(label)
 
     def on_letter_click(self, label, touch):
+
+        # Check if the user touched within the bounds of the letter label
         if label.collide_point(*touch.pos):
+
+            # Check for double tap
             if touch.is_double_tap:
-                self.check_words()
+                if self.selected_label and self.selected_label == label:
+
+                    # Check if the currently selected letters form a valid word
+                    self.check_words()
+
+                    # Reset the currently selected letter
+                    self.reset_selected_label()
             else:
-                
+
+                # If a letter is already selected
                 if self.selected_label:
+
+                    # Check if the selected letters can be swapped
                     if self.is_valid_swap(self.selected_label, label):
+
+                        # Swap the letters
                         self.swap_letters(self.selected_label, label)
-                        self.selected_label.font_size = self.font_size  # set the font size back to the original size
-                        self.selected_label.text_color = (1, 1, 1, 1)  # set the text color back to the original color
-                        self.selected_label.canvas.remove(self.selected_label.ellipse)  # remove the shadow animation
-                        self.selected_label = None
+
+                        # Reset the currently selected letter
+                        self.reset_selected_label()
                     else:
-                        self.selected_label.font_size = self.font_size  # set the font size back to the original size
-                        self.selected_label.text_color = (1, 1, 1, 1)  # set the text color back to the original color
-                        self.selected_label.canvas.remove(self.selected_label.ellipse)  # remove the shadow animation
-                        self.selected_label = None
+
+                        # Reset the currently selected letter
+                        self.reset_selected_label()
                 else:
+
+                    # Set the current letter as selected
                     self.selected_label = label
-                    self.font_size = label.font_size  # store the original font size
-                    label.font_size *= 1.2  # increase the font size by 20%
-                    label.text_color = (1.2, 1.2, 1.2, 1)  # set the text color to indicate it's selected
-                    
-                    # create the shadow animation
+
+                    # Store the original font size
+                    self.font_size = label.font_size  
+
+                    # Increase the font size by 20%
+                    label.font_size *= 1.2  
+
+                    # Change the text color to indicate it's selected
+                    # label.color = (255, 10, 10)  
+
+                    # Create the shadow animation
                     with label.canvas:
                         color = Color(0, 0, 0, 0.2)
-                        label.ellipse = Ellipse(pos=(label.pos[0]-5, label.pos[1]-5), size=(label.size[0]+10, label.size[1]+10))
+                        label.ellipse = Ellipse(pos=(label.pos[0] - 5, label.pos[1] - 5),
+                                                size=(label.size[0] + 10, label.size[1] + 10))
                         animation = Animation(rgba=[0, 0, 0, 0.6], duration=0.5)
                         animation += Animation(rgba=[0, 0, 0, 0.2], duration=0.5)
                         animation.repeat = True
                         animation.start(color)
 
+    def reset_selected_label(self):
+        
+        # Reset the attributes of the currently selected label
+        if self.selected_label:
+            
+            if self.selected_label.color == [1, 1, 1, 1]:
+                
+                self.selected_label.font_size = self.font_size  # Set the font size back to the original size
+                self.selected_label.color = (1, 1, 1, 1)  # Set the text color back to the original color
+                self.selected_label.canvas.remove(self.selected_label.ellipse)  # Remove the shadow animation
+                self.selected_label = None
+            
+            elif self.selected_label.color == [50, 255, 150, 1.0]:
+
+                self.selected_label.font_size = self.font_size  # Set the font size back to the original size
+                self.selected_label.color = (50, 255, 150, 1.0)  # Set the text color back to the original color
+                self.selected_label.canvas.remove(self.selected_label.ellipse)  # Remove the shadow animation
+                self.selected_label = None
+
+            elif self.selected_label.color == [50, 50, 255, 1.0]:
+
+                self.selected_label.font_size = self.font_size  # Set the font size back to the original size
+                self.selected_label.color = (50, 50, 255, 1.0)  # Set the text color back to the original color
+                self.selected_label.canvas.remove(self.selected_label.ellipse)  # Remove the shadow animation
+                self.selected_label = None
+
+            elif self.selected_label.color == [255, 50, 150, 1.0]:
+
+                self.selected_label.font_size = self.font_size  # Set the font size back to the original size
+                self.selected_label.color = (255, 50, 150, 1.0)  # Set the text color back to the original color
+                self.selected_label.canvas.remove(self.selected_label.ellipse)  # Remove the shadow animation
+                self.selected_label = None
+
     def is_valid_swap(self, label1, label2):
+        # Check if two labels are in the same row or the same column
         if label1.row == label2.row or label1.col == label2.col:
             return True
         return False
-    
+
     def on_size(self, *args):
+        # Update the letters grid when window size changes
         self.update_letters()
 
     def swap_letters(self, label1, label2):
+        # Swap letters in the grid and update label text
         row1, col1 = label1.row, label1.col
         row2, col2 = label2.row, label2.col
         self.letters[row1][col1], self.letters[row2][col2] = self.letters[row2][col2], self.letters[row1][col1]
         label1.text, label2.text = label2.text, label1.text
 
-        # Update highlighted letter index if necessary
+        # Update highlighted letter index for bonus if necessary
         if self.highlighted_letter_index_bonus == row1 * self.cols + col1:
             self.highlighted_letter_index_bonus = row2 * self.cols + col2
         elif self.highlighted_letter_index_bonus == row2 * self.cols + col2:
             self.highlighted_letter_index_bonus = row1 * self.cols + col1
 
-        # Update highlighted letter index if necessary
+        # Update highlighted letter index for penalty if necessary
         if self.highlighted_letter_index_penalty == row1 * self.cols + col1:
             self.highlighted_letter_index_penalty = row2 * self.cols + col2
         elif self.highlighted_letter_index_penalty == row2 * self.cols + col2:
             self.highlighted_letter_index_penalty = row1 * self.cols + col1
 
+        # Update highlighted letter index for reset if necessary
+        if self.highlighted_letter_index_reset == row1 * self.cols + col1:
+            self.highlighted_letter_index_reset = row2 * self.cols + col2
+        elif self.highlighted_letter_index_reset == row2 * self.cols + col2:
+            self.highlighted_letter_index_reset = row1 * self.cols + col1
+
+        # Update the letters grid display
         self.update_letters()
 
     def check_words(self):
-        
+        # Check if selected letters form a valid word
         if self.selected_label:
+            # Get the row and column of the selected label
             row1, col1 = self.selected_label.row, self.selected_label.col
+
+            # Iterate through each cell in the grid
             for row2 in range(7):
                 for col2 in range(5):
+                    # Check if current cell is in the same row or column as the selected label
                     if (row1 == row2 and abs(col1 - col2) > 1) or (col1 == col2 and abs(row1 - row2) > 1):
+                        # Retrieve the word formed by the selected label and the current cell
                         word = self.get_word(row1, col1, row2, col2)
-                        if word in self.words:
+
+                        if word in self.found_words:
+                            # If the word has already been found, skip
+                            pass
+                        elif word in self.words:
+                            # If the word is in our list of valid words
                             # Get the MyApp instance
                             app = App.get_running_app()
 
                             # Reset the countdown
                             app.reset_countdown()
 
-                            highlighted_letter_bonus = self.letters[self.highlighted_letter_index_bonus // self.cols][self.highlighted_letter_index_bonus % self.cols]
-                            highlighted_letter_penalty = self.letters[self.highlighted_letter_index_penalty // self.cols][self.highlighted_letter_index_penalty % self.cols]
-                            
-                            # Replace the letters with new random letters
-                            for row in range(min(row1, row2), max(row1, row2)+1):
-                                for col in range(min(col1, col2), max(col1, col2)+1):
+                            # Replace the letters with new random letters and update score
+                            for row in range(min(row1, row2), max(row1, row2) + 1):
+                                for col in range(min(col1, col2), max(col1, col2) + 1):
+                                    # Calculate the points for the current letter and replace it with a random letter
                                     points = self.letter_values.get(self.letters[row][col])
                                     self.letters[row][col] = random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-                                    if highlighted_letter_bonus in word and highlighted_letter_penalty in word:
-                                        app.update_score(points)
-                                    elif highlighted_letter_bonus in word:
-                                        app.update_score(int(points * 2))
-                                    elif highlighted_letter_penalty in word:
-                                        app.update_score(int(points / 2))
-                                    else:
-                                        app.update_score(points)
+                                    app.update_score(points)
+
+                            # Initialize variables to check if highlighted letters are used in the current word
+                            bonus_used = False
+                            penalty_used = False
+                            reset_used = False
+
+                            # Check if any of the highlighted letters are used in the current word
+                            for row in range(min(row1, row2), max(row1, row2)+1):
+                                for col in range(min(col1, col2), max(col1, col2)+1):
+                                    if row * self.cols + col == self.highlighted_letter_index_bonus:
+                                        bonus_used = True
+                                    if row * self.cols + col == self.highlighted_letter_index_penalty:
+                                        penalty_used = True
+                                    if row * self.cols + col == self.highlighted_letter_index_reset:
+                                        reset_used = True
+
+                            # Apply bonus, penalty, or reset effects and update the score
+                            total_points = 0
+                            if bonus_used and penalty_used:
+                                total_points += points
+                            elif bonus_used and reset_used:
+                                total_points += (points * 2)
+                                self.reset_grid()
+                            elif penalty_used and reset_used:
+                                total_points += (int(points / 2))
+                                self.reset_grid()
+                            elif bonus_used:
+                                total_points += (points * 2)
+                            elif penalty_used:
+                                total_points += (int(points / 2))
+                            elif reset_used:
+                                total_points += points
+                                self.reset_grid()
+                            else:
+                                total_points += points
+                            app.update_score(total_points)
+
+                            # Add the word to the list of found words
+                            self.found_words.append(word)
+
+                            # Generate new indexes for highlighted letters
                             self.highlighted_letter_index_bonus = random.randint(0, self.rows * self.cols - 1)
                             self.highlighted_letter_index_penalty = random.randint(0, self.rows * self.cols - 1)
+                            self.highlighted_letter_index_reset = random.randint(0, self.rows * self.cols - 1)
+
+                            # Ensure the new highlighted letter indexes are unique
+                            while self.highlighted_letter_index_bonus == self.highlighted_letter_index_penalty or self.highlighted_letter_index_bonus == self.highlighted_letter_index_reset:
+                                self.highlighted_letter_index_bonus = random.randint(0, self.rows * self.cols - 1)
+
+                            while self.highlighted_letter_index_penalty == self.highlighted_letter_index_reset:
+                                self.highlighted_letter_index_penalty = random.randint(0, self.rows * self.cols - 1)
+
+                            # Update the letters on the grid with new highlighted letters and removed word
                             self.update_letters()
 
+
     def get_word(self, row1, col1, row2, col2):
+        # Get the word from the grid between two positions (same row or same column)
         word = ""
         if row1 == row2:
-            # if the letters are in the same row
+            # If the letters are in the same row
             start_col = min(col1, col2)
             end_col = max(col1, col2)
+            # Iterate through the row and append characters to the word
             for col in range(start_col, end_col+1):
                 word += self.letters[row1][col]
         else:
-            # if the letters are in the same column
+            # If the letters are in the same column
             start_row = min(row1, row2)
             end_row = max(row1, row2)
+            # Iterate through the column and append characters to the word
             for row in range(start_row, end_row+1):
                 word += self.letters[row][col1]
         return word
         
 class MyApp(App):
-
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.time_left = 30
@@ -191,23 +357,29 @@ class MyApp(App):
         self.box_layout = BoxLayout(orientation='vertical')
 
     def build(self):
-
+        # Create and configure the score label
         self.score_label = Label(text=f"{self.score}", size_hint=(1, 0.05), font_size=24)
-        
+
+        # Create and configure the gameover label
         self.gameover_label = Label(text=f"", size_hint=(1, 0.05), font_size=24)
+
+        # Create and configure the progress bar
         self.progress_bar = ProgressBar(max=30, value=30, size_hint=(0.4, 0.05), pos_hint={'center_x': 0.5, 'y': 0.01})
-        
+
+        # Create and configure the high score label
         self.high_score_label = Label(text="", size_hint=(1, 0.1), font_size=24)
 
-        
+        # Add the widgets to the box layout
         self.box_layout.add_widget(self.high_score_label)
         self.box_layout.add_widget(self.score_label)
         self.box_layout.add_widget(self.gameover_label)
         self.box_layout.add_widget(self.progress_bar)
 
+        # Create the random letters grid
         self.grid = RandomLettersGrid(size_hint=(1, 0.8))
         self.box_layout.add_widget(self.grid)
 
+        # Schedule the count down function to be executed every second
         Clock.schedule_interval(self.count_down, 1)
 
         return self.box_layout
@@ -218,51 +390,69 @@ class MyApp(App):
         self.gameover_label.halign = 'center'
         self.gameover_label.valign = 'middle'
         if self.time_left == 0:
+            # Update the gameover label when the time is up and disable the grid
             self.gameover_label.size_hint = (1, 0.4)
             self.score_label.text = ""
             self.gameover_label.text = "Would you like to play again?"
             self.grid.disabled = True
+
+            # Create the Yes and No buttons
             self.yes_button = Button(text="Yes", size_hint=(1, 0.5), font_size=24, background_color=(0.5, 0.5, 0.5, 0.8), color=(1, 1, 1, 1))
             self.no_button = Button(text="No", size_hint=(1, 0.5), font_size=24, background_color=(0.5, 0.5, 0.5, 0.8), color=(1, 1, 1, 1))
+
+            # Bind the buttons to their respective functions
             self.yes_button.bind(on_press=self.restart_game)
             self.no_button.bind(on_press=self.stop_game)
+
+            # Create a box layout for buttons and add the buttons to it
             self.button_box_layout = BoxLayout(orientation='horizontal', size_hint=(1, 0.2))
             self.button_box_layout.add_widget(self.yes_button)
             self.button_box_layout.add_widget(self.no_button)
+
+            # Add the button layout to the main layout
             self.box_layout.add_widget(self.button_box_layout)
+
+            # Hide the progress bar
             self.progress_bar.opacity = 0
 
+            # Update the high score if the current score is greater
             if self.score > self.high_score:
                 self.high_score = self.score
 
             return False
 
     def restart_game(self, instance):
-        self.score = 0
-        self.score_label.text = f"{self.score}"
-        MyApp.reset_countdown(self)
-        self.grid.reset_grid() 
-        Clock.schedule_interval(self.count_down, 1)
-        self.grid.disabled = False
-        self.box_layout.remove_widget(self.button_box_layout)
-        self.gameover_label.size_hint = (1, 0.05)
-        self.progress_bar.value = 30
-        self.progress_bar.opacity = 1
+            # Reset the score, update the score label and reset the countdown
+            self.score = 0
+            self.score_label.text = f"{self.score}"
+            MyApp.reset_countdown(self)
+
+            # Reset the grid, re-enable it and remove the buttons
+            self.grid.reset_grid() 
+            Clock.schedule_interval(self.count_down, 1)
+            self.grid.disabled = False
+            self.box_layout.remove_widget(self.button_box_layout)
+
+            # Update layout sizes and the progress bar
+            self.gameover_label.size_hint = (1, 0.05)
+            self.progress_bar.value = 30
+            self.progress_bar.opacity = 1
 
     def reset_countdown(self):
         self.time_left = 30  # reset the time_left variable
         self.gameover_label.text = f""  # update the timer label text
 
     def update_score(self, points):
+        # Update the score based on the given points
         self.score += points
         self.score_label.text = f"{self.score}"
 
     def stop_game(self, instance):
-        # Add a 'Close' button
+        # Create a 'Close' button and bind it to the close_app function
         self.close_button = Button(text='Exit', size_hint=(1, 0.1), font_size=24, background_color=(0.5, 0.5, 0.5, 0.8), color=(1, 1, 1, 1))
         self.close_button.bind(on_press=self.close_app)
 
-        self.box_layout.remove_widget(self.score_label)
+        # Update the high score label and remove unused widgets
         self.high_score_label.text = f"{self.high_score}"
         self.high_score_label.size_hint = (1, 0.5)
         self.high_score_label.halign = 'center'
@@ -270,6 +460,8 @@ class MyApp(App):
         self.high_score_label.text += f"\n\nGame over"
         self.grid.disabled = True
         self.box_layout.remove_widget(self.button_box_layout)
+
+        # Update the layout based on the user's choice
         if instance.text == "No":
             self.gameover_label.text = ""
             self.box_layout.remove_widget(self.progress_bar)
@@ -278,8 +470,9 @@ class MyApp(App):
         # Add the 'Close' button to the app
         self.box_layout.add_widget(self.close_button)
         return False
-    
+
     def close_app(self, *args):
+        # Stop the running app and exit the system
         App.get_running_app().stop()
         sys.exit()
 
