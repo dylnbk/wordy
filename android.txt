@@ -1,0 +1,3 @@
+title=Shuffle
+author=dylnbk
+orientation=portrait
