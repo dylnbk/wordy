@@ -9,9 +9,11 @@ from kivy.uix.gridlayout import GridLayout
 from kivy.uix.label import Label
 from kivy.graphics import Color, Ellipse
 from kivy.uix.progressbar import ProgressBar
+from kivy.core.window import Window
+from kivy.config import Config
 
 
-class RandomLettersGrid(GridLayout):
+class GameGrid(GridLayout):
 
     def __init__(self, **kwargs):
         
@@ -23,6 +25,10 @@ class RandomLettersGrid(GridLayout):
         self.rows = 7
         self.spacing = [10, 10]
         self.padding = [200, 50]
+        
+        # testing
+        Window.maximize()
+        Config.set('input', 'mouse', 'mouse,disable_multitouch')
         
         # Set up letter values
         self.letter_values = {'A': 10, 'B': 35, 'C': 35, 'D': 25, 'E': 10, 'F': 45, 'G': 25, 'H': 45, 'I': 10, 'J': 90, 'K': 55, 'L': 10, 'M': 35, 'N': 10, 'O': 10, 'P': 35, 'Q': 110, 'R': 10, 'S': 10, 'T': 10, 'U': 10, 'V': 45, 'W': 45, 'X': 90, 'Y': 45, 'Z': 110}
@@ -52,6 +58,7 @@ class RandomLettersGrid(GridLayout):
             self.words = f.read().split()
 
     def update_letters(self):
+
         # Clear existing widgets
         self.clear_widgets()
 
@@ -63,6 +70,7 @@ class RandomLettersGrid(GridLayout):
         # Add letter labels to the grid
         for row in range(7):
             for col in range(5):
+
                 letter = self.letters[row][col]
 
                 label = Label(text=letter, font_size=font_size)
@@ -104,6 +112,7 @@ class RandomLettersGrid(GridLayout):
         # Add new letter labels to the grid
         for row in range(7):
             for col in range(5):
+
                 letter = self.letters[row][col]
                 label = Label(text=letter, font_size=font_size)
                 label.bind(on_touch_down=self.on_letter_click)
@@ -123,12 +132,11 @@ class RandomLettersGrid(GridLayout):
             # Check for double tap
             if touch.is_double_tap:
                 if self.selected_label and self.selected_label == label:
-
                     # Check if the currently selected letters form a valid word
                     self.check_words()
-
                     # Reset the currently selected letter
                     self.reset_selected_label()
+
             else:
 
                 # If a letter is already selected
@@ -136,16 +144,16 @@ class RandomLettersGrid(GridLayout):
 
                     # Check if the selected letters can be swapped
                     if self.is_valid_swap(self.selected_label, label):
-
                         # Swap the letters
                         self.swap_letters(self.selected_label, label)
-
                         # Reset the currently selected letter
                         self.reset_selected_label()
+
                     else:
 
                         # Reset the currently selected letter
                         self.reset_selected_label()
+                        
                 else:
 
                     # Set the current letter as selected
@@ -159,6 +167,7 @@ class RandomLettersGrid(GridLayout):
 
                     # Create the shadow animation
                     with label.canvas:
+
                         color = Color(0, 0, 0, 0.2)
                         label.ellipse = Ellipse(pos=(label.pos[0] - 5, label.pos[1] - 5),
                                                 size=(label.size[0] + 10, label.size[1] + 10))
@@ -201,16 +210,20 @@ class RandomLettersGrid(GridLayout):
                 self.selected_label = None
 
     def is_valid_swap(self, label1, label2):
+
         # Check if two labels are in the same row or the same column
         if label1.row == label2.row or label1.col == label2.col:
             return True
+        
         return False
 
     def on_size(self, *args):
+
         # Update the letters grid when window size changes
         self.update_letters()
 
     def swap_letters(self, label1, label2):
+
         # Swap letters in the grid and update label text
         row1, col1 = label1.row, label1.col
         row2, col2 = label2.row, label2.col
@@ -220,18 +233,21 @@ class RandomLettersGrid(GridLayout):
         # Update highlighted letter index for bonus if necessary
         if self.highlighted_letter_index_bonus == row1 * self.cols + col1:
             self.highlighted_letter_index_bonus = row2 * self.cols + col2
+
         elif self.highlighted_letter_index_bonus == row2 * self.cols + col2:
             self.highlighted_letter_index_bonus = row1 * self.cols + col1
 
         # Update highlighted letter index for penalty if necessary
         if self.highlighted_letter_index_penalty == row1 * self.cols + col1:
             self.highlighted_letter_index_penalty = row2 * self.cols + col2
+
         elif self.highlighted_letter_index_penalty == row2 * self.cols + col2:
             self.highlighted_letter_index_penalty = row1 * self.cols + col1
 
         # Update highlighted letter index for reset if necessary
         if self.highlighted_letter_index_reset == row1 * self.cols + col1:
             self.highlighted_letter_index_reset = row2 * self.cols + col2
+
         elif self.highlighted_letter_index_reset == row2 * self.cols + col2:
             self.highlighted_letter_index_reset = row1 * self.cols + col1
 
@@ -239,23 +255,30 @@ class RandomLettersGrid(GridLayout):
         self.update_letters()
 
     def check_words(self):
+
         # Check if selected letters form a valid word
         if self.selected_label:
+
             # Get the row and column of the selected label
             row1, col1 = self.selected_label.row, self.selected_label.col
 
             # Iterate through each cell in the grid
             for row2 in range(7):
                 for col2 in range(5):
+
                     # Check if current cell is in the same row or column as the selected label
                     if (row1 == row2 and abs(col1 - col2) > 1) or (col1 == col2 and abs(row1 - row2) > 1):
+
                         # Retrieve the word formed by the selected label and the current cell
                         word = self.get_word(row1, col1, row2, col2)
 
                         if word in self.found_words:
+
                             # If the word has already been found, skip
                             pass
+
                         elif word in self.words:
+
                             # If the word is in our list of valid words
                             # Get the MyApp instance
                             app = App.get_running_app()
@@ -266,6 +289,7 @@ class RandomLettersGrid(GridLayout):
                             # Replace the letters with new random letters and update score
                             for row in range(min(row1, row2), max(row1, row2) + 1):
                                 for col in range(min(col1, col2), max(col1, col2) + 1):
+
                                     # Calculate the points for the current letter and replace it with a random letter
                                     points = self.letter_values.get(self.letters[row][col])
                                     self.letters[row][col] = random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -279,15 +303,19 @@ class RandomLettersGrid(GridLayout):
                             # Check if any of the highlighted letters are used in the current word
                             for row in range(min(row1, row2), max(row1, row2)+1):
                                 for col in range(min(col1, col2), max(col1, col2)+1):
+
                                     if row * self.cols + col == self.highlighted_letter_index_bonus:
                                         bonus_used = True
+
                                     if row * self.cols + col == self.highlighted_letter_index_penalty:
                                         penalty_used = True
+
                                     if row * self.cols + col == self.highlighted_letter_index_reset:
                                         reset_used = True
 
                             # Apply bonus, penalty, or reset effects and update the score
                             total_points = 0
+
                             if bonus_used and penalty_used:
                                 total_points += points
                             elif bonus_used and reset_used:
@@ -305,6 +333,7 @@ class RandomLettersGrid(GridLayout):
                                 self.reset_grid()
                             else:
                                 total_points += points
+
                             app.update_score(total_points)
 
                             # Add the word to the list of found words
@@ -327,26 +356,36 @@ class RandomLettersGrid(GridLayout):
 
 
     def get_word(self, row1, col1, row2, col2):
+
         # Get the word from the grid between two positions (same row or same column)
         word = ""
+
         if row1 == row2:
+
             # If the letters are in the same row
             start_col = min(col1, col2)
             end_col = max(col1, col2)
+
             # Iterate through the row and append characters to the word
             for col in range(start_col, end_col+1):
                 word += self.letters[row1][col]
+
         else:
+
             # If the letters are in the same column
             start_row = min(row1, row2)
             end_row = max(row1, row2)
+
             # Iterate through the column and append characters to the word
             for row in range(start_row, end_row+1):
                 word += self.letters[row][col1]
+
         return word
         
 class MyApp(App):
+
     def __init__(self, **kwargs):
+
         super().__init__(**kwargs)
         self.time_left = 30
         self.score = 0
@@ -354,6 +393,7 @@ class MyApp(App):
         self.box_layout = BoxLayout(orientation='vertical')
 
     def build(self):
+
         # Create and configure the score label
         self.score_label = Label(text=f"{self.score}", size_hint=(1, 0.05), font_size=24)
 
@@ -373,7 +413,7 @@ class MyApp(App):
         self.box_layout.add_widget(self.progress_bar)
 
         # Create the random letters grid
-        self.grid = RandomLettersGrid(size_hint=(1, 0.8))
+        self.grid = GameGrid(size_hint=(1, 0.8))
         self.box_layout.add_widget(self.grid)
 
         # Schedule the count down function to be executed every second
@@ -382,11 +422,14 @@ class MyApp(App):
         return self.box_layout
 
     def count_down(self, dt):
+
         self.time_left -= 1
         self.progress_bar.value = self.time_left
         self.gameover_label.halign = 'center'
         self.gameover_label.valign = 'middle'
+
         if self.time_left == 0:
+
             # Update the gameover label when the time is up and disable the grid
             self.gameover_label.size_hint = (1, 0.4)
             self.score_label.text = ""
@@ -419,6 +462,7 @@ class MyApp(App):
             return False
 
     def restart_game(self, instance):
+            
             # Reset the score, update the score label and reset the countdown
             self.score = 0
             self.score_label.text = f"{self.score}"
@@ -436,15 +480,18 @@ class MyApp(App):
             self.progress_bar.opacity = 1
 
     def reset_countdown(self):
+
         self.time_left = 30  # reset the time_left variable
         self.gameover_label.text = f""  # update the timer label text
 
     def update_score(self, points):
+
         # Update the score based on the given points
         self.score += points
         self.score_label.text = f"{self.score}"
 
     def stop_game(self, instance):
+
         # Create a 'Close' button and bind it to the close_app function
         self.close_button = Button(text='Exit', size_hint=(1, 0.1), font_size=24, background_color=(0.5, 0.5, 0.5, 0.8), color=(1, 1, 1, 1))
         self.close_button.bind(on_press=self.close_app)
@@ -460,15 +507,18 @@ class MyApp(App):
 
         # Update the layout based on the user's choice
         if instance.text == "No":
+
             self.gameover_label.text = ""
             self.box_layout.remove_widget(self.progress_bar)
             self.box_layout.remove_widget(self.grid)
 
         # Add the 'Close' button to the app
         self.box_layout.add_widget(self.close_button)
+
         return False
 
     def close_app(self, *args):
+
         # Stop the running app and exit the system
         App.get_running_app().stop()
         sys.exit()
