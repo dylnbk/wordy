@@ -28,7 +28,6 @@ class GameGrid(GridLayout):
         
         # testing
         Window.maximize()
-        Config.set('input', 'mouse', 'mouse,disable_multitouch')
         
         # Set up letter values
         self.letter_values = {'A': 10, 'B': 35, 'C': 35, 'D': 25, 'E': 10, 'F': 45, 'G': 25, 'H': 45, 'I': 10, 'J': 90, 'K': 55, 'L': 10, 'M': 35, 'N': 10, 'O': 10, 'P': 35, 'Q': 110, 'R': 10, 'S': 10, 'T': 10, 'U': 10, 'V': 45, 'W': 45, 'X': 90, 'Y': 45, 'Z': 110}
@@ -395,7 +394,7 @@ class MyApp(App):
     def build(self):
 
         # Create and configure the score label
-        self.score_label = Label(text=f"{self.score}", size_hint=(1, 0.05), font_size=24)
+        self.score_label = Label(text=f"{self.score}", size_hint=(1, 0.05), font_size=64)
 
         # Create and configure the gameover label
         self.gameover_label = Label(text=f"", size_hint=(1, 0.05), font_size=24)
@@ -404,7 +403,7 @@ class MyApp(App):
         self.progress_bar = ProgressBar(max=30, value=30, size_hint=(0.4, 0.05), pos_hint={'center_x': 0.5, 'y': 0.01})
 
         # Create and configure the high score label
-        self.high_score_label = Label(text="", size_hint=(1, 0.1), font_size=24)
+        self.high_score_label = Label(text="", size_hint=(1, 0.1), font_size=64)
 
         # Add the widgets to the box layout
         self.box_layout.add_widget(self.high_score_label)
