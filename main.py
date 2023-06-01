@@ -6,11 +6,14 @@ from kivy.app import App
 from kivy.clock import Clock
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
+from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.label import Label
-from kivy.graphics import Color, Ellipse
+from kivy.graphics import Color, Ellipse, RoundedRectangle
 from kivy.uix.progressbar import ProgressBar
 from kivy.core.window import Window
 from kivy.config import Config
+from kivy.uix.screenmanager import ScreenManager, Screen
+from kivy.uix.popup import Popup
 
 
 class GameGrid(GridLayout):
@@ -380,24 +383,92 @@ class GameGrid(GridLayout):
                 word += self.letters[row][col1]
 
         return word
+    
+class StartMenu(BoxLayout):
+    def __init__(self, app, **kwargs):
+        super().__init__(**kwargs)
+        self.orientation = 'vertical'
+        self.app = app
+
+        self.start_button = Button(text="Start", background_color=(0, 0, 0, 0), font_size=42)
+        self.how_to_play_button = Button(text="How to play", background_color=(0, 0, 0, 0), font_size=42)
+        self.leaderboard_button = Button(text="Leaderboard", background_color=(0, 0, 0, 0), font_size=42)
+        self.exit_button = Button(text="Exit", background_color=(0, 0, 0, 0), font_size=42)
+
+        self.start_button.bind(on_press=self.start_game)
+        self.how_to_play_button.bind(on_press=self.show_instructions)
+        self.leaderboard_button.bind(on_press=self.show_leaderboard)
+        self.exit_button.bind(on_press=self.close_app)
+
+        self.add_widget(self.start_button)
+        self.add_widget(self.how_to_play_button)
+        self.add_widget(self.leaderboard_button)
+        self.add_widget(self.exit_button)
+
+    def start_game(self, _):
+        game_layout = self.app.build_game_layout()
+        game_screen = self.app.sm.get_screen('game')
+        game_screen.clear_widgets()  # Clear any existing widgets from the game screen
+        game_screen.add_widget(game_layout)  # Add the new game layout
+        self.app.sm.current = 'game'
+
+    def show_instructions(self, _):
+        instructions = '''
+            1. The game will generate random letters.
+            2. Your goal is to find as many words as possible using the given letters.
+            3. Each word should have at least three letters.
+            4. You will get one point for each letter in the word.
+            5. Once time runs out, the game is over.
+        '''
+        popup = Popup(title='How to play',
+                      content=Label(text=instructions),
+                      size_hint=(0.8, 0.8))
+        popup.open()
+
+    def show_leaderboard(self, _):
+        # You can customize this method to display the leaderboard scores
+        high_score = self.app.high_score
+        leaderboard_content = f"Highest Score: {high_score}\n\n1. {high_score}"
+        popup = Popup(title='Leaderboard',
+                      content=Label(text=leaderboard_content),
+                      size_hint=(0.8, 0.8))
+        popup.open()
+
+    def close_app(self, _):
+        App.get_running_app().stop()
+        sys.exit()
         
 class MyApp(App):
 
     def __init__(self, **kwargs):
-
         super().__init__(**kwargs)
         self.time_left = 30
         self.score = 0
         self.high_score = 0
-        self.box_layout = BoxLayout(orientation='vertical')
 
     def build(self):
+        Config.set('graphics', 'fullscreen', 'auto')
+        Config.write()
+
+        self.sm = ScreenManager()
+        start_menu_screen = Screen(name="start_menu")
+        start_menu = StartMenu(self)
+        start_menu_screen.add_widget(start_menu)
+        self.sm.add_widget(start_menu_screen)
+
+        game_screen = Screen(name="game")
+        self.sm.add_widget(game_screen)
+
+        return self.sm
+
+    def build_game_layout(self):
+        self.box_layout = BoxLayout(orientation='vertical')
 
         # Create and configure the score label
         self.score_label = Label(text=f"{self.score}", size_hint=(1, 0.05), font_size=64)
 
         # Create and configure the gameover label
-        self.gameover_label = Label(text=f"", size_hint=(1, 0.05), font_size=24)
+        self.gameover_label = Label(text=f"", size_hint=(1, 0.05), font_size=36)
 
         # Create and configure the progress bar
         self.progress_bar = ProgressBar(max=30, value=30, size_hint=(0.4, 0.05), pos_hint={'center_x': 0.5, 'y': 0.01})
@@ -436,8 +507,8 @@ class MyApp(App):
             self.grid.disabled = True
 
             # Create the Yes and No buttons
-            self.yes_button = Button(text="Yes", size_hint=(1, 0.5), font_size=24, background_color=(0.5, 0.5, 0.5, 0.8), color=(1, 1, 1, 1))
-            self.no_button = Button(text="No", size_hint=(1, 0.5), font_size=24, background_color=(0.5, 0.5, 0.5, 0.8), color=(1, 1, 1, 1))
+            self.yes_button = Button(text="Yes", size_hint=(1, 0.9), font_size=42, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
+            self.no_button = Button(text="No", size_hint=(1, 0.9), font_size=42, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
 
             # Bind the buttons to their respective functions
             self.yes_button.bind(on_press=self.restart_game)
@@ -489,32 +560,48 @@ class MyApp(App):
         self.score += points
         self.score_label.text = f"{self.score}"
 
-    def stop_game(self, instance):
+    def return_to_menu(self, _):
+        self.sm.current = 'start_menu'
+        self.grid.reset_grid()
+        Clock.unschedule(self.count_down)
 
-        # Create a 'Close' button and bind it to the close_app function
-        self.close_button = Button(text='Exit', size_hint=(1, 0.1), font_size=24, background_color=(0.5, 0.5, 0.5, 0.8), color=(1, 1, 1, 1))
-        self.close_button.bind(on_press=self.close_app)
+        self.box_layout.clear_widgets()
+        self.box_layout = None
+
+    def stop_game(self, instance):
+        # Create a 'Return to menu' button and bind it to the return_to_menu function
+        self.return_to_menu_button = Button(text='Return to menu', size_hint=(1, 0.3), font_size=42, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
+        self.return_to_menu_button.bind(on_press=self.return_to_menu)
 
         # Update the high score label and remove unused widgets
-        self.high_score_label.text = f"{self.high_score}"
-        self.high_score_label.size_hint = (1, 0.5)
+        self.high_score_label.text = f"{self.high_score}\n\nGame over"
         self.high_score_label.halign = 'center'
-        self.high_score_label.valign = 'middle'
-        self.high_score_label.text += f"\n\nGame over"
         self.grid.disabled = True
         self.box_layout.remove_widget(self.button_box_layout)
 
+        # Create a new box layout for the game over screen with the same size_hint as the grid
+        self.gameover_box = BoxLayout(orientation='vertical', size_hint=(1, 0.8))
+        self.anchor_layout = AnchorLayout(anchor_y='top')
+
+        # Remove the high score label from the original parent and add it to the new anchor layout
+        self.high_score_label.size_hint = (None, None)
+        self.high_score_label.texture_update()
+        self.high_score_label.size = self.high_score_label.texture_size
+        self.box_layout.remove_widget(self.high_score_label)
+        self.anchor_layout.add_widget(self.high_score_label)
+
+        # Add the anchor layout to the gameover box and the return to menu button to the game over screen
+        self.gameover_box.add_widget(self.anchor_layout)
+        self.gameover_box.add_widget(self.return_to_menu_button)
+
         # Update the layout based on the user's choice
         if instance.text == "No":
-
             self.gameover_label.text = ""
             self.box_layout.remove_widget(self.progress_bar)
             self.box_layout.remove_widget(self.grid)
 
-        # Add the 'Close' button to the app
-        self.box_layout.add_widget(self.close_button)
-
-        return False
+        # Add the gameover_box to the main box layout (replacing the grid)
+        self.box_layout.add_widget(self.gameover_box)
 
     def close_app(self, *args):
 
