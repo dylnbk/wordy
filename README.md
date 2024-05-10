@@ -1,5 +1,3 @@
-# implement splash screen / menu
-# fix button aesthetic for consistency
 # do a backend for the app?
 # if not using backend, add a special word list to find unique daily challenges
 # if using a backend, add user profiles, leader board

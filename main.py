@@ -1,5 +1,6 @@
 import random
 import sys
+import requests
 from kivy.uix.button import Button
 from kivy.animation import Animation
 from kivy.app import App
@@ -14,7 +15,23 @@ from kivy.core.window import Window
 from kivy.config import Config
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.popup import Popup
+from kivy.uix.floatlayout import FloatLayout
 
+
+def calculate_font_size(screen_width, screen_height, size):
+  # Calculate the font size based on the screen width and height.
+  font_size = min(screen_width / size, screen_height / size)
+  return font_size
+
+class ServerItems():
+
+    def get_daily_challenge():
+        response = requests.get("http://localhost:5000/daily_challenge")
+        if response.status_code == 200:
+            daily_word = response.json()["daily_words"]
+            return daily_word
+        else:
+            return None
 
 class GameGrid(GridLayout):
 
@@ -288,14 +305,15 @@ class GameGrid(GridLayout):
                             # Reset the countdown
                             app.reset_countdown()
 
+                            points = 0
+
                             # Replace the letters with new random letters and update score
                             for row in range(min(row1, row2), max(row1, row2) + 1):
                                 for col in range(min(col1, col2), max(col1, col2) + 1):
 
                                     # Calculate the points for the current letter and replace it with a random letter
-                                    points = self.letter_values.get(self.letters[row][col])
+                                    points += self.letter_values.get(self.letters[row][col])
                                     self.letters[row][col] = random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-                                    app.update_score(points)
 
                             # Initialize variables to check if highlighted letters are used in the current word
                             bonus_used = False
@@ -324,19 +342,16 @@ class GameGrid(GridLayout):
                                 total_points += (points * 2)
                                 self.reset_grid()
                             elif penalty_used and reset_used:
-                                total_points += (int(points / 2))
                                 self.reset_grid()
                             elif bonus_used:
                                 total_points += (points * 2)
-                            elif penalty_used:
-                                total_points += (int(points / 2))
                             elif reset_used:
                                 total_points += points
                                 self.reset_grid()
                             else:
                                 total_points += points
 
-                            app.update_score(total_points)
+                            app.update_score(total_points, penalty_used)
 
                             # Add the word to the list of found words
                             self.found_words.append(word)
@@ -385,24 +400,27 @@ class GameGrid(GridLayout):
         return word
     
 class StartMenu(BoxLayout):
+
     def __init__(self, app, **kwargs):
+        
         super().__init__(**kwargs)
+
         self.orientation = 'vertical'
         self.app = app
 
-        self.start_button = Button(text="Start", background_color=(0, 0, 0, 0), font_size=42)
-        self.how_to_play_button = Button(text="How to play", background_color=(0, 0, 0, 0), font_size=42)
-        self.leaderboard_button = Button(text="Leaderboard", background_color=(0, 0, 0, 0), font_size=42)
-        self.exit_button = Button(text="Exit", background_color=(0, 0, 0, 0), font_size=42)
+        self.start_button = Button(text="Start", background_color=(0, 0, 0, 0), font_size=font_size_medium)
+        self.how_to_play_button = Button(text="How to play", background_color=(0, 0, 0, 0), font_size=font_size_medium)
+        self.bonus_button = Button(text="Bonus", background_color=(0, 0, 0, 0), font_size=font_size_medium)
+        self.exit_button = Button(text="Exit", background_color=(0, 0, 0, 0), font_size=font_size_medium)
 
         self.start_button.bind(on_press=self.start_game)
         self.how_to_play_button.bind(on_press=self.show_instructions)
-        self.leaderboard_button.bind(on_press=self.show_leaderboard)
+        self.bonus_button.bind(on_press=self.show_bonus)
         self.exit_button.bind(on_press=self.close_app)
 
         self.add_widget(self.start_button)
         self.add_widget(self.how_to_play_button)
-        self.add_widget(self.leaderboard_button)
+        self.add_widget(self.bonus_button)
         self.add_widget(self.exit_button)
 
     def start_game(self, _):
@@ -413,30 +431,106 @@ class StartMenu(BoxLayout):
         self.app.sm.current = 'game'
 
     def show_instructions(self, _):
+
         instructions = '''
-            1. The game will generate random letters.
-            2. Your goal is to find as many words as possible using the given letters.
-            3. Each word should have at least three letters.
-            4. You will get one point for each letter in the word.
-            5. Once time runs out, the game is over.
+            1. Click on a letter to move its position and create words.
+
+            2. Each word should have at least three letters.
+
+            3. Double click the word to submit and score points.
+
+            4. Including a [color=32FF96]green[/color] letter will double the word score.
+
+            5. Including a [color=FF3296]red[/color] letter will lose half the total score.
+
+            6. Including a [color=FFFF32]yellow[/color] letter will generate a new letter grid.
+
+            7. Once the time runs out, the game is over!
         '''
-        popup = Popup(title='How to play',
-                      content=Label(text=instructions),
-                      size_hint=(0.8, 0.8))
+
+        # create layout
+        layout = BoxLayout(orientation='vertical')
+
+        # create label and add to layout
+        label = Label(text=instructions, font_size=font_size_medium, markup=True)  # this line is updated
+        layout.add_widget(label)
+
+        # create button and add to layout
+        button = Button(text='Back', size_hint=(1, 0.5), font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
+        layout.add_widget(button)
+
+        popup = Popup(content=layout,  # set content as layout
+                    size_hint=(0.8, 0.8),
+                    title_size=0, 
+                    separator_height=0)
+
+        popup.background = ''
+        popup.background_color = (0, 0, 0)
+
+        # bind button on_release to popup.dismiss
+        button.bind(on_release=popup.dismiss)
+
         popup.open()
 
+    def show_bonus(self, _):
+        bonus_content = f"These words change everyday, find them to score extra points!\n\n{daily_words}"
+        label = Label(text=bonus_content, font_size=font_size_medium)
+        button = Button(text='Back', size_hint=(1, 0.08), font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
+
+        layout = BoxLayout(orientation='vertical')
+        layout.add_widget(label)
+        layout.add_widget(button)
+
+        popup = Popup(content=layout, size_hint=(1, 1), title_size=0, separator_height=0)
+        popup.background = ''
+        popup.background_color = (0, 0, 0)
+
+        button.bind(on_release=popup.dismiss)
+
+        popup.open()
+    
+    '''
     def show_leaderboard(self, _):
-        # You can customize this method to display the leaderboard scores
+        
         high_score = self.app.high_score
         leaderboard_content = f"Highest Score: {high_score}\n\n1. {high_score}"
-        popup = Popup(title='Leaderboard',
-                      content=Label(text=leaderboard_content),
-                      size_hint=(0.8, 0.8))
+        popup = Popup(content=Label(text=leaderboard_content, font_size=font_size_medium),
+                    size_hint=(0.8, 0.8),
+                    title_size=0, 
+                    separator_height=0)
+        popup.background = ''
+        popup.background_color = (0, 0, 0)
+
         popup.open()
+    '''
 
     def close_app(self, _):
         App.get_running_app().stop()
         sys.exit()
+
+class BurgerButton(Button):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.text = '='
+        self.size_hint = (0.1, 0.1)
+        self.pos_hint = {'x': 0, 'top': 1}
+        self.background_color = (0, 0, 0, 0)
+        self.color = (1, 1, 1, 1)  # adjust color properties as needed
+        self.font_size = font_size_large
+        self.opacity = 0
+        self.disabled = True
+
+class InfoButton(Button):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.text = 'Bonus'
+        self.size_hint = (0.1, 0.1)
+        self.pos_hint = {'right': 1, 'top': 1}
+        self.background_color = (0, 0, 0, 0)
+        self.color = (1, 1, 1, 1)  # adjust color properties as needed
+        self.font_size = font_size_large
+        self.opacity = 0
+        self.disabled = True
         
 class MyApp(App):
 
@@ -445,6 +539,11 @@ class MyApp(App):
         self.time_left = 30
         self.score = 0
         self.high_score = 0
+        self.menu_popup = Popup(content=self.build_menu_layout(),
+                                    background_color=(0, 0, 0),
+                                    size_hint=(1, 1),
+                                    title_size=0, 
+                                    separator_height=0)
 
     def build(self):
         Config.set('graphics', 'fullscreen', 'auto')
@@ -459,22 +558,75 @@ class MyApp(App):
         game_screen = Screen(name="game")
         self.sm.add_widget(game_screen)
 
-        return self.sm
+        self.float_layout = FloatLayout()
+
+        # Create burger button
+        self.burger_button = BurgerButton()
+        self.burger_button.bind(on_release=self.open_menu)
+
+        # Create info button
+        self.info_button = InfoButton()
+        self.info_button.bind(on_release=self.open_info)
+
+        # Add the screen manager and the burger button to the float layout
+        self.float_layout.add_widget(self.sm)    # your ScreenManager
+        self.float_layout.add_widget(self.info_button)
+        self.float_layout.add_widget(self.burger_button)
+
+        return self.float_layout
+
+
+    def open_info(self, instance):
+        box = BoxLayout(orientation='vertical')
+        box.add_widget(Label(text=daily_words, font_size=font_size_large))
+        close_button = Button(text="X", size_hint=(1, 0.2), font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
+        box.add_widget(close_button)
+
+        self.info_popup = Popup(content=box,
+                            background_color=(0, 0, 0),
+                            size_hint=(1, 1),
+                            title_size=0, 
+                            separator_height=0)
+
+        close_button.bind(on_release=self.info_popup.dismiss)
+        self.info_popup.bind(on_dismiss=self.on_info_popup_dismiss)
+
+        Clock.unschedule(self.count_down)
+        self.info_popup.open()
+
+    def on_info_popup_dismiss(self, *args):
+        Clock.schedule_interval(self.count_down, 1)
+
+    def show_info_menu(self):
+        self.info_button.opacity = 1
+        self.info_button.disabled = False
+
+    def hide_info_menu(self):
+        self.info_button.opacity = 0
+        self.info_button.disabled = True
+    
+    def show_burger_menu(self):
+        self.burger_button.opacity = 1
+        self.burger_button.disabled = False
+
+    def hide_burger_menu(self):
+        self.burger_button.opacity = 0
+        self.burger_button.disabled = True
 
     def build_game_layout(self):
         self.box_layout = BoxLayout(orientation='vertical')
 
         # Create and configure the score label
-        self.score_label = Label(text=f"{self.score}", size_hint=(1, 0.05), font_size=64)
+        self.score_label = Label(text=f"{self.score}", size_hint=(1, 0.05), font_size=font_size_large)
 
         # Create and configure the gameover label
-        self.gameover_label = Label(text=f"", size_hint=(1, 0.05), font_size=36)
+        self.gameover_label = Label(text=f"", size_hint=(1, 0.05), font_size=font_size_small)
 
         # Create and configure the progress bar
         self.progress_bar = ProgressBar(max=30, value=30, size_hint=(0.4, 0.05), pos_hint={'center_x': 0.5, 'y': 0.01})
 
         # Create and configure the high score label
-        self.high_score_label = Label(text="", size_hint=(1, 0.1), font_size=64)
+        self.high_score_label = Label(text="", size_hint=(1, 0.1), font_size=font_size_large)
 
         # Add the widgets to the box layout
         self.box_layout.add_widget(self.high_score_label)
@@ -489,7 +641,33 @@ class MyApp(App):
         # Schedule the count down function to be executed every second
         Clock.schedule_interval(self.count_down, 1)
 
+        # Show the burger menu
+        self.show_burger_menu()
+
+        self.show_info_menu()
+
         return self.box_layout
+    
+    def open_menu(self, instance):
+        self.menu_popup.open()
+        Clock.unschedule(self.count_down)
+
+    def build_menu_layout(self):
+        box = BoxLayout(orientation='vertical')
+        resume_button = Button(text='Resume', font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
+        resume_button.bind(on_press=self.close_menu)
+        words_button = Button(text='Bonus words', font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
+        words_button.bind(on_press=self.close_menu)
+        resume_button.bind(on_press=self.close_menu)
+        exit_button = Button(text='Exit', font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
+        exit_button.bind(on_press=self.close_app)  # replace this with your actual exit function
+        box.add_widget(resume_button)
+        box.add_widget(exit_button)
+        return box
+
+    def close_menu(self, instance):
+        self.menu_popup.dismiss()
+        Clock.schedule_interval(self.count_down, 1)
 
     def count_down(self, dt):
 
@@ -507,8 +685,8 @@ class MyApp(App):
             self.grid.disabled = True
 
             # Create the Yes and No buttons
-            self.yes_button = Button(text="Yes", size_hint=(1, 0.9), font_size=42, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
-            self.no_button = Button(text="No", size_hint=(1, 0.9), font_size=42, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
+            self.yes_button = Button(text="Yes", size_hint=(1, 0.9), font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
+            self.no_button = Button(text="No", size_hint=(1, 0.9), font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
 
             # Bind the buttons to their respective functions
             self.yes_button.bind(on_press=self.restart_game)
@@ -528,6 +706,11 @@ class MyApp(App):
             # Update the high score if the current score is greater
             if self.score > self.high_score:
                 self.high_score = self.score
+
+            # Hide the burger menu
+            self.hide_burger_menu()  
+
+            self.hide_info_menu()
 
             return False
 
@@ -554,10 +737,16 @@ class MyApp(App):
         self.time_left = 30  # reset the time_left variable
         self.gameover_label.text = f""  # update the timer label text
 
-    def update_score(self, points):
+    def update_score(self, points, penalty):
 
-        # Update the score based on the given points
-        self.score += points
+        if penalty:
+            if self.score <= 1:
+                self.score = 0
+            else:
+                self.score = int(self.score / 2)
+        else:
+            self.score += points
+
         self.score_label.text = f"{self.score}"
 
     def return_to_menu(self, _):
@@ -570,7 +759,7 @@ class MyApp(App):
 
     def stop_game(self, instance):
         # Create a 'Return to menu' button and bind it to the return_to_menu function
-        self.return_to_menu_button = Button(text='Return to menu', size_hint=(1, 0.3), font_size=42, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
+        self.return_to_menu_button = Button(text='Return to menu', size_hint=(1, 0.3), font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
         self.return_to_menu_button.bind(on_press=self.return_to_menu)
 
         # Update the high score label and remove unused widgets
@@ -610,4 +799,21 @@ class MyApp(App):
         sys.exit()
 
 if __name__ == '__main__':
+
+    # Font sizes
+    font_size_large = calculate_font_size(Window.width, Window.height, 32)
+    font_size_medium = calculate_font_size(Window.width, Window.height, 42)
+    font_size_small = calculate_font_size(Window.width, Window.height, 62)
+
+    try:
+        # Get daily words
+        words = ServerItems.get_daily_challenge()
+    except:
+        words = ["Server", "Down"]
+
+    daily_words = ""
+    for ix, word in enumerate(words, 1):
+        daily_words += f"\n{ix}. {word}"
+
+    # Run app
     MyApp().run()
