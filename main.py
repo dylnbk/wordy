@@ -23,6 +23,31 @@ def calculate_font_size(screen_width, screen_height, size):
   font_size = min(screen_width / size, screen_height / size)
   return font_size
 
+def get_random_words(filename, num_words=5):
+
+  try:
+    with open(filename, "r") as f:
+      words = f.read().split()
+      if len(words) < num_words:
+        raise ValueError("File does not contain enough words")
+      random_words = random.sample(words, num_words)
+      return [word.capitalize() for word in random_words]
+  except FileNotFoundError:
+    print(f"Error: File '{filename}' not found")
+    return None
+  except ValueError as e:
+    print(e)
+    return None
+  
+def daily_words(words):
+
+    daily_words = ''
+
+    for ix, word in enumerate(words, 1):
+        daily_words += f"\n{ix}. {word}"
+
+    return daily_words
+
 class ServerItems():
 
     def get_daily_challenge():
@@ -126,7 +151,7 @@ class GameGrid(GridLayout):
         # Calculate grid and cell sizes
         grid_width, grid_height = self.width - self.padding[0] * 2, self.height - self.padding[1] * 2
         cell_width, cell_height = grid_width / self.cols, grid_height / 7
-        font_size = min(cell_width, cell_height) * 0.8
+        font_size = min(cell_width, cell_height) * 0.9
 
         # Add new letter labels to the grid
         for row in range(7):
@@ -142,6 +167,8 @@ class GameGrid(GridLayout):
                 label.row = row
                 label.col = col
                 self.add_widget(label)
+        
+        self.update_letters()
 
     def on_letter_click(self, label, touch):
 
@@ -317,8 +344,10 @@ class GameGrid(GridLayout):
 
                             # Initialize variables to check if highlighted letters are used in the current word
                             bonus_used = False
+                            word_bonus = False
                             penalty_used = False
                             reset_used = False
+                            word = word.capitalize()
 
                             # Check if any of the highlighted letters are used in the current word
                             for row in range(min(row1, row2), max(row1, row2)+1):
@@ -349,9 +378,14 @@ class GameGrid(GridLayout):
                                 total_points += points
                                 self.reset_grid()
                             else:
-                                total_points += points
+                                if word in bonus_words:
+                                    total_points += points
+                                    word_bonus = True
+                                    bonus_words.remove(word)
+                                else:
+                                    total_points += points
 
-                            app.update_score(total_points, penalty_used)
+                            app.update_score(total_points, penalty_used, word_bonus)
 
                             # Add the word to the list of found words
                             self.found_words.append(word)
@@ -433,19 +467,23 @@ class StartMenu(BoxLayout):
     def show_instructions(self, _):
 
         instructions = '''
-            1. Click on a letter to move its position and create words.
+            • Tap on a letter to move its position and create words.
 
-            2. Each word should have at least three letters.
+            • Each word should have at least three letters.
 
-            3. Double click the word to submit and score points.
+            • Double tap the last letter of your word to submit and score points.
 
-            4. Including a [color=32FF96]green[/color] letter will double the word score.
+            • Including a [color=32FF96]green[/color] letter will double the word score.
 
-            5. Including a [color=FF3296]red[/color] letter will lose half the total score.
+            • Including a [color=FF3296]red[/color] letter will lose half the total score.
 
-            6. Including a [color=FFFF32]yellow[/color] letter will generate a new letter grid.
+            • Including a [color=FFFF32]yellow[/color] letter will generate a new letter grid.
 
-            7. Once the time runs out, the game is over!
+            • Submit a word from the bonus list to double the total score.
+
+            • The same word cannot be submitted twice.
+
+            • Once the time runs out, the game is over!
         '''
 
         # create layout
@@ -473,7 +511,7 @@ class StartMenu(BoxLayout):
         popup.open()
 
     def show_bonus(self, _):
-        bonus_content = f"These words change everyday, find them to score extra points!\n\n{daily_words}"
+        bonus_content = f"Submit a word from the list to double your current total:\n\n{daily_words(bonus_words)}"
         label = Label(text=bonus_content, font_size=font_size_medium)
         button = Button(text='Back', size_hint=(1, 0.08), font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
 
@@ -578,7 +616,7 @@ class MyApp(App):
 
     def open_info(self, instance):
         box = BoxLayout(orientation='vertical')
-        box.add_widget(Label(text=daily_words, font_size=font_size_large))
+        box.add_widget(Label(text=daily_words(bonus_words), font_size=font_size_large))
         close_button = Button(text="X", size_hint=(1, 0.2), font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
         box.add_widget(close_button)
 
@@ -656,12 +694,13 @@ class MyApp(App):
         box = BoxLayout(orientation='vertical')
         resume_button = Button(text='Resume', font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
         resume_button.bind(on_press=self.close_menu)
-        words_button = Button(text='Bonus words', font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
-        words_button.bind(on_press=self.close_menu)
-        resume_button.bind(on_press=self.close_menu)
+        restart_button = Button(text='Restart', font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
+        restart_button.bind(on_press=self.close_menu)
+        restart_button.bind(on_press=self.restart_game)
         exit_button = Button(text='Exit', font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
-        exit_button.bind(on_press=self.close_app)  # replace this with your actual exit function
+        exit_button.bind(on_press=self.close_app)
         box.add_widget(resume_button)
+        box.add_widget(restart_button)
         box.add_widget(exit_button)
         return box
 
@@ -715,35 +754,47 @@ class MyApp(App):
             return False
 
     def restart_game(self, instance):
-            
-            # Reset the score, update the score label and reset the countdown
-            self.score = 0
-            self.score_label.text = f"{self.score}"
-            MyApp.reset_countdown(self)
 
-            # Reset the grid, re-enable it and remove the buttons
-            self.grid.reset_grid() 
-            Clock.schedule_interval(self.count_down, 1)
-            self.grid.disabled = False
+        global bonus_words
+
+        bonus_words = get_random_words("words.txt")
+
+        # Reset the score, update the score label and reset the countdown
+        self.score = 0
+        self.score_label.text = f"{self.score}"
+        self.reset_countdown()  # Note: self is implied when calling instance methods
+
+        # Reset the grid, re-enable it and check if button_box_layout exists before removing it
+        self.grid.reset_grid() 
+        Clock.schedule_interval(self.count_down, 1)
+        self.grid.disabled = False
+        if hasattr(self, 'button_box_layout'):
             self.box_layout.remove_widget(self.button_box_layout)
 
-            # Update layout sizes and the progress bar
-            self.gameover_label.size_hint = (1, 0.05)
-            self.progress_bar.value = 30
-            self.progress_bar.opacity = 1
+        # Hide the button_box_layout if it exists
+        if hasattr(self, 'button_box_layout') and self.button_box_layout:
+            self.button_box_layout.clear_widgets()
+
+        # Update layout sizes and the progress bar
+        self.gameover_label.size_hint = (1, 0.05)
+        self.progress_bar.value = 30
+        self.progress_bar.opacity = 1
+        self.build_menu_layout()
 
     def reset_countdown(self):
 
         self.time_left = 30  # reset the time_left variable
         self.gameover_label.text = f""  # update the timer label text
 
-    def update_score(self, points, penalty):
+    def update_score(self, points, penalty, word_bonus):
 
         if penalty:
             if self.score <= 1:
                 self.score = 0
             else:
                 self.score = int(self.score / 2)
+        elif word_bonus:
+            self.score *= 2
         else:
             self.score += points
 
@@ -800,20 +851,14 @@ class MyApp(App):
 
 if __name__ == '__main__':
 
+    global bonus_words
+
     # Font sizes
     font_size_large = calculate_font_size(Window.width, Window.height, 32)
     font_size_medium = calculate_font_size(Window.width, Window.height, 42)
     font_size_small = calculate_font_size(Window.width, Window.height, 62)
 
-    try:
-        # Get daily words
-        words = ServerItems.get_daily_challenge()
-    except:
-        words = ["Server", "Down"]
-
-    daily_words = ""
-    for ix, word in enumerate(words, 1):
-        daily_words += f"\n{ix}. {word}"
+    bonus_words = get_random_words("words.txt")
 
     # Run app
     MyApp().run()
