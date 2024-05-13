@@ -512,7 +512,7 @@ class StartMenu(BoxLayout):
 
     def show_bonus(self, _):
         bonus_content = f"Submit a word from the list to double your current total:\n\n{daily_words(bonus_words)}"
-        label = Label(text=bonus_content, font_size=font_size_medium)
+        label = Label(text=bonus_content, font_size=font_size_medium, halign='center')
         button = Button(text='Back', size_hint=(1, 0.08), font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
 
         layout = BoxLayout(orientation='vertical')
@@ -574,6 +574,7 @@ class MyApp(App):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.countdown_event = None
         self.time_left = 30
         self.score = 0
         self.high_score = 0
@@ -695,7 +696,6 @@ class MyApp(App):
         resume_button = Button(text='Resume', font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
         resume_button.bind(on_press=self.close_menu)
         restart_button = Button(text='Restart', font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
-        restart_button.bind(on_press=self.close_menu)
         restart_button.bind(on_press=self.restart_game)
         exit_button = Button(text='Exit', font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
         exit_button.bind(on_press=self.close_app)
@@ -746,11 +746,6 @@ class MyApp(App):
             if self.score > self.high_score:
                 self.high_score = self.score
 
-            # Hide the burger menu
-            self.hide_burger_menu()  
-
-            self.hide_info_menu()
-
             return False
 
     def restart_game(self, instance):
@@ -762,24 +757,24 @@ class MyApp(App):
         # Reset the score, update the score label and reset the countdown
         self.score = 0
         self.score_label.text = f"{self.score}"
-        self.reset_countdown()  # Note: self is implied when calling instance methods
+
+        self.menu_popup.dismiss()
+        self.reset_countdown()
+
+        if self.countdown_event:
+            Clock.unschedule(self.countdown_event)
+        self.countdown_event = Clock.schedule_interval(self.count_down, 1)
 
         # Reset the grid, re-enable it and check if button_box_layout exists before removing it
         self.grid.reset_grid() 
-        Clock.schedule_interval(self.count_down, 1)
         self.grid.disabled = False
         if hasattr(self, 'button_box_layout'):
             self.box_layout.remove_widget(self.button_box_layout)
-
-        # Hide the button_box_layout if it exists
-        if hasattr(self, 'button_box_layout') and self.button_box_layout:
-            self.button_box_layout.clear_widgets()
 
         # Update layout sizes and the progress bar
         self.gameover_label.size_hint = (1, 0.05)
         self.progress_bar.value = 30
         self.progress_bar.opacity = 1
-        self.build_menu_layout()
 
     def reset_countdown(self):
 
@@ -810,8 +805,11 @@ class MyApp(App):
 
     def stop_game(self, instance):
         # Create a 'Return to menu' button and bind it to the return_to_menu function
-        self.return_to_menu_button = Button(text='Return to menu', size_hint=(1, 0.3), font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
-        self.return_to_menu_button.bind(on_press=self.return_to_menu)
+        self.return_to_menu_button = Button(text='Exit', size_hint=(1, 0.3), font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
+        self.return_to_menu_button.bind(on_press=self.close_app)
+
+        self.info_button.opacity = 0
+        self.burger_button.opacity = 0
 
         # Update the high score label and remove unused widgets
         self.high_score_label.text = f"{self.high_score}\n\nGame over"
