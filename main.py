@@ -44,7 +44,7 @@ def daily_words(words):
     daily_words = ''
 
     for ix, word in enumerate(words, 1):
-        daily_words += f"\n{ix}. {word}"
+        daily_words += f"\n{word}"
 
     return daily_words
 
