@@ -383,13 +383,23 @@ class GameGrid(GridLayout):
                                 self.reset_grid()
                             elif penalty_used and reset_used:
                                 self.reset_grid()
+                                if word in bonus_words:
+                                    bonus_words.remove(word)
                             elif bonus_used:
                                 total_points += (points * 2)
+                                if word in bonus_words:
+                                    word_bonus = True
+                                    bonus_words.remove(word)
                             elif reset_used:
                                 total_points += points
                                 self.reset_grid()
+                                if word in bonus_words:
+                                    word_bonus = True
+                                    bonus_words.remove(word)
                             else:
                                 if word in bonus_words:
+                                    if penalty_used:
+                                        bonus_words.remove(word)
                                     total_points += points
                                     word_bonus = True
                                     bonus_words.remove(word)
