@@ -16,6 +16,9 @@ from kivy.config import Config
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.popup import Popup
 from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.image import Image
+from kivy.core.audio import SoundLoader
+from kivy.uix.switch import Switch
 
 
 def calculate_font_size(screen_width, screen_height, size):
@@ -172,6 +175,8 @@ class GameGrid(GridLayout):
 
     def on_letter_click(self, label, touch):
 
+        app = App.get_running_app()
+
         # Check if the user touched within the bounds of the letter label
         if label.collide_point(*touch.pos):
 
@@ -188,8 +193,11 @@ class GameGrid(GridLayout):
                 # If a letter is already selected
                 if self.selected_label:
 
+                    app.second_pop.play()
+
                     # Check if the selected letters can be swapped
                     if self.is_valid_swap(self.selected_label, label):
+
                         # Swap the letters
                         self.swap_letters(self.selected_label, label)
                         # Reset the currently selected letter
@@ -201,6 +209,7 @@ class GameGrid(GridLayout):
                         self.reset_selected_label()
                         
                 else:
+                    app.first_pop.play()
 
                     # Set the current letter as selected
                     self.selected_label = label
@@ -328,6 +337,8 @@ class GameGrid(GridLayout):
                             # If the word is in our list of valid words
                             # Get the MyApp instance
                             app = App.get_running_app()
+
+                            app.success_sound.play()
 
                             # Reset the countdown
                             app.reset_countdown()
@@ -471,7 +482,7 @@ class StartMenu(BoxLayout):
 
             • Each word should have at least three letters.
 
-            • Double tap the last letter of your word to submit and score points.
+            • Double tap the first/last letter of your word to submit and score points.
 
             • Including a [color=32FF96]green[/color] letter will double the word score.
 
@@ -583,17 +594,34 @@ class MyApp(App):
                                     size_hint=(1, 1),
                                     title_size=0, 
                                     separator_height=0)
+        self.success_sound = SoundLoader.load('success.mp3')
+        self.first_pop = SoundLoader.load('pop-first.mp3')
+        self.second_pop = SoundLoader.load('pop-second.mp3')
 
     def build(self):
+        # Configure fullscreen
         Config.set('graphics', 'fullscreen', 'auto')
         Config.write()
 
+        # Create the ScreenManager
         self.sm = ScreenManager()
+
+        # Add the loading screen (in the build function)
+        loading_screen = Screen(name="loading")
+        loading_layout = FloatLayout(size_hint=(1, 1))
+        loading_image = Image(source='loading.png', size_hint=(None, None),
+                      size=(Window.width / 2, Window.width / 2), pos_hint={'center_x': 0.5, 'center_y': 0.5})
+        loading_layout.add_widget(loading_image)
+        loading_screen.add_widget(loading_layout)
+        self.sm.add_widget(loading_screen)
+
+        # Add the start menu screen
         start_menu_screen = Screen(name="start_menu")
         start_menu = StartMenu(self)
         start_menu_screen.add_widget(start_menu)
         self.sm.add_widget(start_menu_screen)
 
+        # Add the game screen
         game_screen = Screen(name="game")
         self.sm.add_widget(game_screen)
 
@@ -611,6 +639,9 @@ class MyApp(App):
         self.float_layout.add_widget(self.sm)    # your ScreenManager
         self.float_layout.add_widget(self.info_button)
         self.float_layout.add_widget(self.burger_button)
+
+        # Schedule the transition to the start menu screen after a delay (simulating loading)
+        Clock.schedule_once(lambda dt: setattr(self.sm, 'current', 'start_menu'), 2)
 
         return self.float_layout
 
@@ -693,16 +724,39 @@ class MyApp(App):
 
     def build_menu_layout(self):
         box = BoxLayout(orientation='vertical')
+
+        # Layout for the sound control
+        sound_layout = BoxLayout(orientation='horizontal', spacing=50, size_hint=(None, None))
+        sound_layout.width = 100  
+        sound_layout.height = 100  
+        sound_layout.pos_hint = {'center_x': 0.1, 'center_y': 0.5}  # Center the sound control
+
+        # Speaker icon setup
+        speaker_icon = Image(source='speaker.png', size_hint=(None, None), size=(50, 50))
+        self.sound_switch = Switch(active=True, size_hint=(None, None), size=(50, 50)) 
+        self.sound_switch.bind(active=self.toggle_sound) 
+
+        sound_layout.add_widget(speaker_icon)
+        sound_layout.add_widget(self.sound_switch)
+        box.add_widget(sound_layout)
+
         resume_button = Button(text='Resume', font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
         resume_button.bind(on_press=self.close_menu)
         restart_button = Button(text='Restart', font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
         restart_button.bind(on_press=self.restart_game)
         exit_button = Button(text='Exit', font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
         exit_button.bind(on_press=self.close_app)
+
         box.add_widget(resume_button)
         box.add_widget(restart_button)
         box.add_widget(exit_button)
         return box
+
+    def toggle_sound(self, instance, value):
+        """Toggles the sound on/off based on the switch value."""
+        self.first_pop.volume = 1 if value else 0
+        self.second_pop.volume = 1 if value else 0
+        self.success_sound.volume = 1 if value else 0
 
     def close_menu(self, instance):
         self.menu_popup.dismiss()
@@ -718,9 +772,10 @@ class MyApp(App):
         if self.time_left == 0:
 
             # Update the gameover label when the time is up and disable the grid
-            self.gameover_label.size_hint = (1, 0.4)
+            self.gameover_label.size_hint = (1, 0.2)
             self.score_label.text = ""
-            self.gameover_label.text = "Would you like to play again?"
+            self.gameover_label.text = "Play again?"
+            self.gameover_label.font_size = font_size_large
             self.grid.disabled = True
 
             # Create the Yes and No buttons
