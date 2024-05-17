@@ -317,6 +317,10 @@ class GameGrid(GridLayout):
             # Get the row and column of the selected label
             row1, col1 = self.selected_label.row, self.selected_label.col
 
+            # Variable to store the longest word and associated start and end row/column indices
+            longest_word = None
+            longest_word_coords = (0, 0, 0, 0)  # (start_row, start_col, end_row, end_col)
+
             # Iterate through each cell in the grid
             for row2 in range(7):
                 for col2 in range(5):
@@ -328,109 +332,131 @@ class GameGrid(GridLayout):
                         word = self.get_word(row1, col1, row2, col2)
 
                         if word in self.found_words:
-
                             # If the word has already been found, skip
                             pass
+                        elif word in self.words and (longest_word is None or len(word) > len(longest_word)):
+                            # Update the longest word and the associated coordinates
+                            longest_word = word
+                            longest_word_coords = (row1, col1, row2, col2)
 
-                        elif word in self.words:
+            # If the longest word is found, replace the letters and update the score
+            if longest_word:
+                start_row, start_col, end_row, end_col = longest_word_coords
 
-                            # If the word is in our list of valid words
-                            # Get the MyApp instance
-                            app = App.get_running_app()
+                # Determine if the word is horizontal or vertical
+                is_horizontal = start_row == end_row
+                is_vertical = start_col == end_col
 
-                            app.success_sound.play()
+                # If the word is in our list of valid words
+                # Get the MyApp instance
+                app = App.get_running_app()
 
-                            # Reset the countdown
-                            app.reset_countdown()
+                app.success_sound.play()
 
-                            points = 0
+                # Reset the countdown
+                app.reset_countdown()
 
-                            # Replace the letters with new random letters and update score
-                            for row in range(min(row1, row2), max(row1, row2) + 1):
-                                for col in range(min(col1, col2), max(col1, col2) + 1):
+                points = 0
 
-                                    # Calculate the points for the current letter and replace it with a random letter
-                                    points += self.letter_values.get(self.letters[row][col])
-                                    self.letters[row][col] = random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+                # Replace the letters with new random letters and update score
+                for row in range(min(start_row, end_row), max(start_row, end_row) + 1):
+                    for col in range(min(start_col, end_col), max(start_col, end_col) + 1):
+                        # Calculate the points for the current letter and replace it with a random letter
+                        points += self.letter_values.get(self.letters[row][col])
+                        self.letters[row][col] = random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
-                            # Initialize variables to check if highlighted letters are used in the current word
-                            bonus_used = False
-                            word_bonus = False
-                            penalty_used = False
-                            reset_used = False
-                            word = word.capitalize()
+                # Initialize variables to check if highlighted letters are used in the current word
+                bonus_used = False
+                word_bonus = False
+                penalty_used = False
+                reset_used = False
+                word = longest_word.capitalize()
 
-                            # Check if any of the highlighted letters are used in the current word
-                            for row in range(min(row1, row2), max(row1, row2)+1):
-                                for col in range(min(col1, col2), max(col1, col2)+1):
+                # Check if any of the highlighted letters are used in the current word
+                if is_horizontal:
+                    # The word is horizontal, iterate over columns
+                    for col in range(min(start_col, end_col), max(start_col, end_col) + 1):
+                        index = start_row * self.cols + col
 
-                                    if row * self.cols + col == self.highlighted_letter_index_bonus:
-                                        bonus_used = True
+                        if index == self.highlighted_letter_index_bonus:
+                            bonus_used = True
+                        if index == self.highlighted_letter_index_penalty:
+                            penalty_used = True
+                        if index == self.highlighted_letter_index_reset:
+                            reset_used = True
 
-                                    if row * self.cols + col == self.highlighted_letter_index_penalty:
-                                        penalty_used = True
+                        # Additional logic for handling the letter at (start_row, col)
 
-                                    if row * self.cols + col == self.highlighted_letter_index_reset:
-                                        reset_used = True
+                elif is_vertical:
+                    # The word is vertical, iterate over rows
+                    for row in range(min(start_row, end_row), max(start_row, end_row) + 1):
+                        index = row * self.cols + start_col
 
-                            # Apply bonus, penalty, or reset effects and update the score
-                            total_points = 0
+                        if index == self.highlighted_letter_index_bonus:
+                            bonus_used = True
+                        if index == self.highlighted_letter_index_penalty:
+                            penalty_used = True
+                        if index == self.highlighted_letter_index_reset:
+                            reset_used = True
 
-                            if bonus_used and penalty_used:
-                                total_points += points
-                                if word in bonus_words:
-                                    bonus_words.remove(word)
-                            elif bonus_used and reset_used:
-                                total_points += (points * 2)
-                                self.reset_grid()
-                                if word in bonus_words:
-                                    word_bonus = True
-                                    bonus_words.remove(word)
-                            elif penalty_used and reset_used:
-                                self.reset_grid()
-                                if word in bonus_words:
-                                    bonus_words.remove(word)
-                            elif bonus_used:
-                                total_points += (points * 2)
-                                if word in bonus_words:
-                                    word_bonus = True
-                                    bonus_words.remove(word)
-                            elif reset_used:
-                                total_points += points
-                                self.reset_grid()
-                                if word in bonus_words:
-                                    word_bonus = True
-                                    bonus_words.remove(word)
-                            else:
-                                if penalty_used:
-                                    if word in bonus_words:
-                                        bonus_words.remove(word)
-                                elif word in bonus_words:
-                                    total_points += points
-                                    word_bonus = True
-                                    bonus_words.remove(word)
-                                else:
-                                    total_points += points
+                # Apply bonus, penalty, or reset effects and update the score
+                total_points = 0
 
-                            app.update_score(total_points, penalty_used, word_bonus)
+                if bonus_used and penalty_used:
+                    total_points += points
+                    if word in bonus_words:
+                        bonus_words.remove(word)
+                elif bonus_used and reset_used:
+                    total_points += (points * 2)
+                    self.reset_grid()
+                    if word in bonus_words:
+                        word_bonus = True
+                        bonus_words.remove(word)
+                elif penalty_used and reset_used:
+                    self.reset_grid()
+                    if word in bonus_words:
+                        bonus_words.remove(word)
+                elif bonus_used:
+                    total_points += (points * 2)
+                    if word in bonus_words:
+                        word_bonus = True
+                        bonus_words.remove(word)
+                elif reset_used:
+                    total_points += points
+                    self.reset_grid()
+                    if word in bonus_words:
+                        word_bonus = True
+                        bonus_words.remove(word)
+                else:
+                    if penalty_used:
+                        if word in bonus_words:
+                            bonus_words.remove(word)
+                    elif word in bonus_words:
+                        total_points += points
+                        word_bonus = True
+                        bonus_words.remove(word)
+                    else:
+                        total_points += points
 
-                            # Add the word to the list of found words
-                            self.found_words.append(word)
+                app.update_score(total_points, penalty_used, word_bonus)
 
-                            # Generate new indexes for highlighted letters
-                            self.highlighted_letter_index_bonus = random.randint(0, self.rows * self.cols - 1)
-                            self.highlighted_letter_index_penalty = random.randint(0, self.rows * self.cols - 1)
-                            self.highlighted_letter_index_reset = random.randint(0, self.rows * self.cols - 1)
+                # Add the word to the list of found words
+                self.found_words.append(longest_word)
 
-                            # Ensure the new highlighted letter indexes are unique
-                            while self.highlighted_letter_index_bonus == self.highlighted_letter_index_penalty or self.highlighted_letter_index_bonus == self.highlighted_letter_index_reset:
-                                self.highlighted_letter_index_bonus = random.randint(0, self.rows * self.cols - 1)
+                # Generate new indexes for highlighted letters
+                self.highlighted_letter_index_bonus = random.randint(0, self.rows * self.cols - 1)
+                self.highlighted_letter_index_penalty = random.randint(0, self.rows * self.cols - 1)
+                self.highlighted_letter_index_reset = random.randint(0, self.rows * self.cols - 1)
 
-                            while self.highlighted_letter_index_penalty == self.highlighted_letter_index_reset:
-                                self.highlighted_letter_index_penalty = random.randint(0, self.rows * self.cols - 1)
+                # Ensure the new highlighted letter indexes are unique
+                while self.highlighted_letter_index_bonus == self.highlighted_letter_index_penalty or self.highlighted_letter_index_bonus == self.highlighted_letter_index_reset:
+                    self.highlighted_letter_index_bonus = random.randint(0, self.rows * self.cols - 1)
 
-                            # Update the letters on the grid with new highlighted letters and removed word
-                            self.update_letters()
+                while self.highlighted_letter_index_penalty == self.highlighted_letter_index_reset:
+                    self.highlighted_letter_index_penalty = random.randint(0, self.rows * self.cols - 1)
+
+                # Update the letters on the grid with new highlighted letters and removed word
+                self.update_letters()
 
 
     def get_word(self, row1, col1, row2, col2):
