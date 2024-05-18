@@ -524,7 +524,7 @@ class StartMenu(BoxLayout):
 
             • Each word should have at least three letters.
 
-            • Double tap the first/last letter of your word to submit and score points.
+            • Double tap the first letter of your word to submit and score points.
 
             • Including a [color=32FF96]green[/color] letter will double the word score.
 
@@ -648,15 +648,6 @@ class MyApp(App):
         # Create the ScreenManager
         self.sm = ScreenManager()
 
-        # Add the loading screen (in the build function)
-        loading_screen = Screen(name="loading")
-        loading_layout = FloatLayout(size_hint=(1, 1))
-        loading_image = Image(source='loading.png', size_hint=(None, None),
-                      size=(Window.width / 2, Window.width / 2), pos_hint={'center_x': 0.5, 'center_y': 0.5})
-        loading_layout.add_widget(loading_image)
-        loading_screen.add_widget(loading_layout)
-        self.sm.add_widget(loading_screen)
-
         # Add the start menu screen
         start_menu_screen = Screen(name="start_menu")
         start_menu = StartMenu(self)
@@ -681,9 +672,6 @@ class MyApp(App):
         self.float_layout.add_widget(self.sm)    # your ScreenManager
         self.float_layout.add_widget(self.info_button)
         self.float_layout.add_widget(self.burger_button)
-
-        # Schedule the transition to the start menu screen after a delay (simulating loading)
-        Clock.schedule_once(lambda dt: setattr(self.sm, 'current', 'start_menu'), 2)
 
         return self.float_layout
 
