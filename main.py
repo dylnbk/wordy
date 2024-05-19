@@ -19,6 +19,7 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.image import Image
 from kivy.core.audio import SoundLoader
 from kivy.uix.switch import Switch
+from kivy.metrics import sp
 
 
 def calculate_font_size(screen_width, screen_height, size):
@@ -50,16 +51,6 @@ def daily_words(words):
         daily_words += f"\n{word}"
 
     return daily_words
-
-class ServerItems():
-
-    def get_daily_challenge():
-        response = requests.get("http://localhost:5000/daily_challenge")
-        if response.status_code == 200:
-            daily_word = response.json()["daily_words"]
-            return daily_word
-        else:
-            return None
 
 class GameGrid(GridLayout):
 
@@ -519,53 +510,37 @@ class StartMenu(BoxLayout):
 
     def show_instructions(self, _):
 
-        instructions = '''
-            • Tap on a letter to move its position and create words.
-
-            • Each word should have at least three letters.
-
-            • Double tap the first letter of your word to submit and score points.
-
-            • Including a [color=32FF96]green[/color] letter will double the word score.
-
-            • Including a [color=FF3296]red[/color] letter will lose half the total score.
-
-            • Including a [color=FFFF32]yellow[/color] letter will generate a new letter grid.
-
-            • Submit a word from the bonus list to double the total score.
-
-            • The same word cannot be submitted twice.
-
-            • Once the time runs out, the game is over!
-        '''
-
-        # create layout
+        instructions = "• Move letters within a row/column.\n\n• Double-tap first letter to submit.\n\n• [color=32FF96]Green[/color]: double word score.\n\n• [color=FF3296]Red[/color]: halve total score.\n\n• [color=FFFF32]Yellow[/color]: reset the grid.\n\n• Bonus list words: double total score.\n\n• No duplicates.\n\n• Game over when the time runs out!"
+        
+        # Create layout
         layout = BoxLayout(orientation='vertical')
 
-        # create label and add to layout
-        label = Label(text=instructions, font_size=font_size_medium, markup=True)  # this line is updated
+        # Create label with left alignment
+        label = Label(text=instructions, font_size=font_size_dynamic_small, markup=True, halign='left')
         layout.add_widget(label)
 
-        # create button and add to layout
-        button = Button(text='Back', size_hint=(1, 0.5), font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
+        # Create button and add to layout
+        button = Button(text='Back', size_hint=(1, 0.08), font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
         layout.add_widget(button)
 
-        popup = Popup(content=layout,  # set content as layout
-                    size_hint=(0.8, 0.8),
-                    title_size=0, 
-                    separator_height=0)
+        # Create Popup with centered properties
+        popup = Popup(content=layout,
+                    size_hint=(1, 1),
+                    title_size=0,
+                    separator_height=0,
+                    pos_hint={'center_x': 0.5, 'center_y': 0.5})  # Center the popup
 
         popup.background = ''
         popup.background_color = (0, 0, 0)
 
-        # bind button on_release to popup.dismiss
+        # Bind button on_release to popup.dismiss
         button.bind(on_release=popup.dismiss)
 
         popup.open()
 
     def show_bonus(self, _):
-        bonus_content = f"Submit a word from the list to double your current total:\n\n{daily_words(bonus_words)}"
-        label = Label(text=bonus_content, font_size=font_size_medium, halign='center')
+        bonus_content = f"Submit a word from the list to \ndouble your current total:\n\n{daily_words(bonus_words)}"
+        label = Label(text=bonus_content, font_size=font_size_dynamic, halign='center')
         button = Button(text='Back', size_hint=(1, 0.08), font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
 
         layout = BoxLayout(orientation='vertical')
@@ -579,21 +554,6 @@ class StartMenu(BoxLayout):
         button.bind(on_release=popup.dismiss)
 
         popup.open()
-    
-    '''
-    def show_leaderboard(self, _):
-        
-        high_score = self.app.high_score
-        leaderboard_content = f"Highest Score: {high_score}\n\n1. {high_score}"
-        popup = Popup(content=Label(text=leaderboard_content, font_size=font_size_medium),
-                    size_hint=(0.8, 0.8),
-                    title_size=0, 
-                    separator_height=0)
-        popup.background = ''
-        popup.background_color = (0, 0, 0)
-
-        popup.open()
-    '''
 
     def close_app(self, _):
         App.get_running_app().stop()
@@ -604,7 +564,7 @@ class BurgerButton(Button):
         super().__init__(**kwargs)
         self.text = '='
         self.size_hint = (0.1, 0.1)
-        self.pos_hint = {'x': 0, 'top': 1}
+        self.pos_hint = {'x': 0.11, 'top': 1}
         self.background_color = (0, 0, 0, 0)
         self.color = (1, 1, 1, 1)  # adjust color properties as needed
         self.font_size = font_size_large
@@ -616,10 +576,10 @@ class InfoButton(Button):
         super().__init__(**kwargs)
         self.text = 'Bonus'
         self.size_hint = (0.1, 0.1)
-        self.pos_hint = {'right': 1, 'top': 1}
+        self.pos_hint = {'right': 0.89, 'top': 1}
         self.background_color = (0, 0, 0, 0)
         self.color = (1, 1, 1, 1)  # adjust color properties as needed
-        self.font_size = font_size_large
+        self.font_size = font_size_medium
         self.opacity = 0
         self.disabled = True
         
@@ -678,7 +638,7 @@ class MyApp(App):
 
     def open_info(self, instance):
         box = BoxLayout(orientation='vertical')
-        box.add_widget(Label(text=daily_words(bonus_words), font_size=font_size_large))
+        box.add_widget(Label(text=daily_words(bonus_words), font_size=font_size_medium))
         close_button = Button(text="X", size_hint=(1, 0.2), font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
         box.add_widget(close_button)
 
@@ -756,10 +716,10 @@ class MyApp(App):
         box = BoxLayout(orientation='vertical')
 
         # Layout for the sound control
-        sound_layout = BoxLayout(orientation='horizontal', spacing=50, size_hint=(None, None))
-        sound_layout.width = 100  
+        sound_layout = BoxLayout(orientation='horizontal', spacing=200, size_hint=(None, None))
+        sound_layout.width = 400  
         sound_layout.height = 100  
-        sound_layout.pos_hint = {'center_x': 0.1, 'center_y': 0.5}  # Center the sound control
+        sound_layout.pos_hint = {'center_x': 0.2, 'center_y': 0.5}  # Center the sound control
 
         # Speaker icon setup
         speaker_icon = Image(source='speaker.png', size_hint=(None, None), size=(50, 50))
@@ -937,9 +897,11 @@ if __name__ == '__main__':
     global bonus_words
 
     # Font sizes
-    font_size_large = calculate_font_size(Window.width, Window.height, 32)
-    font_size_medium = calculate_font_size(Window.width, Window.height, 42)
-    font_size_small = calculate_font_size(Window.width, Window.height, 62)
+    font_size_large = sp(40)
+    font_size_medium = sp(30)
+    font_size_small = sp(26)
+    font_size_dynamic = sp(22)
+    font_size_dynamic_small = sp(18)
 
     bonus_words = get_random_words("words.txt")
 
