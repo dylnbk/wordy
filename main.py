@@ -510,7 +510,7 @@ class StartMenu(BoxLayout):
 
     def show_instructions(self, _):
 
-        instructions = "• Move letters within a row/column.\n\n• Double-tap first letter to submit.\n\n• [color=32FF96]Green[/color]: double word score.\n\n• [color=FF3296]Red[/color]: halve total score.\n\n• [color=FFFF32]Yellow[/color]: reset the grid.\n\n• Bonus list words: double total score.\n\n• No duplicates.\n\n• Game over when the time runs out!"
+        instructions = "• Move letters within a row/column.\n\n• Double-tap first letter to submit.\n\n• [color=32FF96]Green[/color]: double word score.\n\n• [color=FF3296]Red[/color]: halve total score.\n\n• [color=FFFF32]Yellow[/color]: reset the grid.\n\n• Bonus words: double total score.\n\n• No duplicates.\n\n• Game over when the time runs out!"
         
         # Create layout
         layout = BoxLayout(orientation='vertical')
@@ -539,7 +539,7 @@ class StartMenu(BoxLayout):
         popup.open()
 
     def show_bonus(self, _):
-        bonus_content = f"Submit a word from the list to \ndouble your current total:\n\n{daily_words(bonus_words)}"
+        bonus_content = f"Submit a word from the list \nto double your current total:\n\n{daily_words(bonus_words)}"
         label = Label(text=bonus_content, font_size=font_size_dynamic, halign='center')
         button = Button(text='Back', size_hint=(1, 0.08), font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
 
@@ -857,7 +857,7 @@ class MyApp(App):
         self.burger_button.opacity = 0
 
         # Update the high score label and remove unused widgets
-        self.high_score_label.text = f"{self.high_score}\n\nGame over"
+        self.high_score_label.text = f"{self.high_score}\n\nGame Over"
         self.high_score_label.halign = 'center'
         self.grid.disabled = True
         self.box_layout.remove_widget(self.button_box_layout)
