@@ -1,6 +1,7 @@
 import random
 import sys
-import requests
+import json
+import os
 from kivy.uix.button import Button
 from kivy.animation import Animation
 from kivy.app import App
@@ -9,7 +10,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.label import Label
-from kivy.graphics import Color, Ellipse, RoundedRectangle
+from kivy.graphics import Color, Rectangle
 from kivy.uix.progressbar import ProgressBar
 from kivy.core.window import Window
 from kivy.config import Config
@@ -26,6 +27,52 @@ def calculate_font_size(screen_width, screen_height, size):
   # Calculate the font size based on the screen width and height.
   font_size = min(screen_width / size, screen_height / size)
   return font_size
+
+def get_highscore(difficulty):
+
+  try:
+    # Get the absolute path to the file
+    filepath = os.path.abspath("highscore.json")
+    with open(filepath, "r") as file:
+      # Load the JSON data
+      data = json.load(file)
+
+      # Return the highscore for the given difficulty
+      return data.get(difficulty, None)
+
+  except FileNotFoundError:
+    # File not found, return None
+    return None
+  
+def update_highscore(new_score, difficulty):
+
+  try:
+    # Get the absolute path to the file
+    filepath = os.path.abspath("highscore.json")
+    # Open the file in read mode
+    with open(filepath, "r") as file:
+      # Load the JSON data
+      data = json.load(file)
+
+    # Check if the new score is higher than the current highscore for the given difficulty
+    if new_score > data[difficulty]:
+      # Update the highscore in the data dictionary
+      data[difficulty] = new_score
+
+      # Open the file in write mode
+      with open(filepath, "w") as file:
+        # Dump the updated data back into the JSON file
+        json.dump(data, file, indent=4)
+
+  except FileNotFoundError:
+    # Create the file if it doesn't exist
+    with open(filepath, "w") as file:
+      # Initialize the data dictionary with default values
+      data = {"easy": 0, "normal": 0, "hard": 0}
+      # Set the new score for the given difficulty
+      data[difficulty] = new_score
+      # Dump the initial data into the JSON file
+      json.dump(data, file, indent=4)
 
 def get_random_words(filename, num_words=5):
 
@@ -214,11 +261,19 @@ class GameGrid(GridLayout):
                     # Create the shadow animation
                     with label.canvas:
 
+                        # Get label position and size
+                        position = label.pos
+                        size = label.size
+
+                        # Create a rectangle with padding
+                        padding = 20  # Adjust padding as needed
+
                         color = Color(0, 0, 0, 0.2)
-                        label.ellipse = Ellipse(pos=(label.pos[0] - 5, label.pos[1] - 5),
-                                                size=(label.size[0] + 10, label.size[1] + 10))
-                        animation = Animation(rgba=[0, 0, 0, 0.6], duration=0.5)
-                        animation += Animation(rgba=[0, 0, 0, 0.2], duration=0.5)
+                        label.rectangle = Rectangle(pos=position, size=(size[0] + padding, size[1] + padding), 
+                                            anchor='center')  # Anchor at center of label
+
+                        animation = Animation(rgba=[0, 0, 0, 1], duration=0.5)
+                        animation += Animation(rgba=[0, 0, 0, 0.01], duration=0.5)
                         animation.repeat = True
                         animation.start(color)
 
@@ -231,28 +286,28 @@ class GameGrid(GridLayout):
                 
                 self.selected_label.font_size = self.font_size  # Set the font size back to the original size
                 self.selected_label.color = (1, 1, 1, 1)  # Set the text color back to the original color
-                self.selected_label.canvas.remove(self.selected_label.ellipse)  # Remove the shadow animation
+                self.selected_label.canvas.remove(self.selected_label.rectangle)  # Remove the shadow animation
                 self.selected_label = None
             
             elif self.selected_label.color == [50, 255, 150, 1.0]:
 
                 self.selected_label.font_size = self.font_size  # Set the font size back to the original size
                 self.selected_label.color = (50, 255, 150, 1.0)  # Set the text color back to the original color
-                self.selected_label.canvas.remove(self.selected_label.ellipse)  # Remove the shadow animation
+                self.selected_label.canvas.remove(self.selected_label.rectangle)  # Remove the shadow animation
                 self.selected_label = None
 
             elif self.selected_label.color == [50, 50, 255, 1.0]:
 
                 self.selected_label.font_size = self.font_size  # Set the font size back to the original size
                 self.selected_label.color = (50, 50, 255, 1.0)  # Set the text color back to the original color
-                self.selected_label.canvas.remove(self.selected_label.ellipse)  # Remove the shadow animation
+                self.selected_label.canvas.remove(self.selected_label.rectangle)  # Remove the shadow animation
                 self.selected_label = None
 
             elif self.selected_label.color == [255, 50, 150, 1.0]:
 
                 self.selected_label.font_size = self.font_size  # Set the font size back to the original size
                 self.selected_label.color = (255, 50, 150, 1.0)  # Set the text color back to the original color
-                self.selected_label.canvas.remove(self.selected_label.ellipse)  # Remove the shadow animation
+                self.selected_label.canvas.remove(self.selected_label.rectangle)  # Remove the shadow animation
                 self.selected_label = None
 
     def is_valid_swap(self, label1, label2):
@@ -486,17 +541,29 @@ class StartMenu(BoxLayout):
         self.orientation = 'vertical'
         self.app = app
 
+        self.difficulty = 'Normal'
+        self.time_limit = 30
+
         self.start_button = Button(text="Start", background_color=(0, 0, 0, 0), font_size=font_size_medium)
         self.how_to_play_button = Button(text="How to play", background_color=(0, 0, 0, 0), font_size=font_size_medium)
         self.bonus_button = Button(text="Bonus", background_color=(0, 0, 0, 0), font_size=font_size_medium)
         self.exit_button = Button(text="Exit", background_color=(0, 0, 0, 0), font_size=font_size_medium)
+        
+        # Difficulty button
+        self.difficulty_button = Button(
+            text=f"Difficulty: {self.difficulty}",
+            background_color=(0, 0, 0, 0),
+            font_size=font_size_medium
+        )
 
         self.start_button.bind(on_press=self.start_game)
+        self.difficulty_button.bind(on_press=self.show_difficulty_options)
         self.how_to_play_button.bind(on_press=self.show_instructions)
         self.bonus_button.bind(on_press=self.show_bonus)
         self.exit_button.bind(on_press=self.close_app)
 
         self.add_widget(self.start_button)
+        self.add_widget(self.difficulty_button)
         self.add_widget(self.how_to_play_button)
         self.add_widget(self.bonus_button)
         self.add_widget(self.exit_button)
@@ -507,6 +574,45 @@ class StartMenu(BoxLayout):
         game_screen.clear_widgets()  # Clear any existing widgets from the game screen
         game_screen.add_widget(game_layout)  # Add the new game layout
         self.app.sm.current = 'game'
+
+    def show_difficulty_options(self, _):
+        """Displays a popup to select difficulty."""
+        layout = BoxLayout(orientation='vertical')
+
+        def set_difficulty(difficulty):
+            self.difficulty = difficulty
+            self.difficulty_button.text = f"Difficulty: {self.difficulty}"
+            if difficulty == 'Easy':
+                self.time_limit = 60
+                self.app.difficulty = 'easy'
+                self.app.pb = get_highscore(self.app.difficulty)
+            elif difficulty == 'Normal':
+                self.app.difficulty = 'normal'
+                self.time_limit = 30
+                self.app.pb = get_highscore(self.app.difficulty)
+            elif difficulty == 'Hard':
+                self.app.difficulty = 'hard'
+                self.time_limit = 15
+                self.app.pb = get_highscore(self.app.difficulty)
+            self.app.time_left = self.time_limit
+            self.app.global_time = self.time_limit
+            popup.dismiss()
+
+        for diff in ['Easy', 'Normal', 'Hard']:
+            btn = Button(text=diff, font_size=font_size_medium, background_color=(0, 0, 0, 0))
+            btn.bind(on_press=lambda instance, d=diff: set_difficulty(d))
+            layout.add_widget(btn)
+
+        popup = Popup(
+            content=layout,
+            size_hint=(1, 1),
+            title_size=0,
+            separator_height=0,
+            pos_hint={'center_x': 0.5, 'center_y': 0.5},
+            background='',
+            background_color=(0, 0, 0)
+        )
+        popup.open()
 
     def show_instructions(self, _):
 
@@ -589,7 +695,10 @@ class MyApp(App):
         super().__init__(**kwargs)
         self.countdown_event = None
         self.time_left = 30
+        self.global_time = 30
         self.score = 0
+        self.difficulty = 'normal'
+        self.pb = get_highscore(self.difficulty)
         self.high_score = 0
         self.menu_popup = Popup(content=self.build_menu_layout(),
                                     background_color=(0, 0, 0),
@@ -679,11 +788,14 @@ class MyApp(App):
         # Create and configure the score label
         self.score_label = Label(text=f"{self.score}", size_hint=(1, 0.05), font_size=font_size_large)
 
+        # Create and configure the personal best label
+        self.pb_label = Label(text=f"PB: {self.pb}", size_hint=(1, 0.05), font_size=font_size_large)
+
         # Create and configure the gameover label
         self.gameover_label = Label(text=f"", size_hint=(1, 0.05), font_size=font_size_small)
 
         # Create and configure the progress bar
-        self.progress_bar = ProgressBar(max=30, value=30, size_hint=(0.4, 0.05), pos_hint={'center_x': 0.5, 'y': 0.01})
+        self.progress_bar = ProgressBar(max=self.global_time, value=self.global_time, size_hint=(0.4, 0.05), pos_hint={'center_x': 0.5, 'y': 0.01})
 
         # Create and configure the high score label
         self.high_score_label = Label(text="", size_hint=(1, 0.1), font_size=font_size_large)
@@ -691,6 +803,7 @@ class MyApp(App):
         # Add the widgets to the box layout
         self.box_layout.add_widget(self.high_score_label)
         self.box_layout.add_widget(self.score_label)
+        self.box_layout.add_widget(self.pb_label)
         self.box_layout.add_widget(self.gameover_label)
         self.box_layout.add_widget(self.progress_bar)
 
@@ -734,13 +847,31 @@ class MyApp(App):
         resume_button.bind(on_press=self.close_menu)
         restart_button = Button(text='Restart', font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
         restart_button.bind(on_press=self.restart_game)
-        exit_button = Button(text='Exit', font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
-        exit_button.bind(on_press=self.close_app)
+        exit_button = Button(text='Menu', font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
+        exit_button.bind(on_press=self.return_to_menu) 
 
         box.add_widget(resume_button)
         box.add_widget(restart_button)
         box.add_widget(exit_button)
         return box
+    
+    def return_to_menu(self, instance):
+        """Returns the user to the start menu screen."""
+        self.menu_popup.dismiss()  # Close the menu popup
+        self.sm.current = "start_menu"
+        self.hide_info_menu()
+        self.hide_burger_menu()
+        update_highscore(self.pb, self.difficulty)
+        self.reset_game_state()
+
+    def reset_game_state(self):
+        """Resets game timer, score, and bonus list."""
+        global bonus_words
+        self.time_left = self.global_time
+        self.score = 0
+        self.score_label.text = "0" 
+        bonus_words = get_random_words("words.txt") 
+        
 
     def toggle_sound(self, instance, value):
         """Toggles the sound on/off based on the switch value."""
@@ -764,6 +895,7 @@ class MyApp(App):
             # Update the gameover label when the time is up and disable the grid
             self.gameover_label.size_hint = (1, 0.2)
             self.score_label.text = ""
+            self.pb_label.text = ""
             self.gameover_label.text = "Play again?"
             self.gameover_label.font_size = font_size_large
             self.grid.disabled = True
@@ -802,6 +934,7 @@ class MyApp(App):
         # Reset the score, update the score label and reset the countdown
         self.score = 0
         self.score_label.text = f"{self.score}"
+        self.pb_label.text = f"PB: {self.pb}"
 
         self.menu_popup.dismiss()
         self.reset_countdown()
@@ -823,7 +956,7 @@ class MyApp(App):
 
     def reset_countdown(self):
 
-        self.time_left = 30  # reset the time_left variable
+        self.time_left = self.global_time # reset the time_left variable
         self.gameover_label.text = f""  # update the timer label text
 
     def update_score(self, points, penalty, word_bonus):
@@ -840,24 +973,21 @@ class MyApp(App):
 
         self.score_label.text = f"{self.score}"
 
-    def return_to_menu(self, _):
-        self.sm.current = 'start_menu'
-        self.grid.reset_grid()
-        Clock.unschedule(self.count_down)
-
-        self.box_layout.clear_widgets()
-        self.box_layout = None
+        if self.score > self.pb:
+            self.pb = self.score
+            self.pb_label.text = f"PB: {self.pb}"
 
     def stop_game(self, instance):
         # Create a 'Return to menu' button and bind it to the return_to_menu function
-        self.return_to_menu_button = Button(text='Exit', size_hint=(1, 0.3), font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
-        self.return_to_menu_button.bind(on_press=self.close_app)
+        self.exit_game = Button(text='Exit', size_hint=(1, 0.3), font_size=font_size_medium, background_color=(0, 0, 0, 0), color=(1, 1, 1, 1))
+        self.exit_game.bind(on_press=self.close_app)
 
         self.info_button.opacity = 0
         self.burger_button.opacity = 0
 
         # Update the high score label and remove unused widgets
-        self.high_score_label.text = f"{self.high_score}\n\nGame Over"
+        self.pb_label.text = ""
+        self.high_score_label.text = f"{self.high_score}\n\nPB: {self.pb}\n\nGame Over"
         self.high_score_label.halign = 'center'
         self.grid.disabled = True
         self.box_layout.remove_widget(self.button_box_layout)
@@ -875,7 +1005,7 @@ class MyApp(App):
 
         # Add the anchor layout to the gameover box and the return to menu button to the game over screen
         self.gameover_box.add_widget(self.anchor_layout)
-        self.gameover_box.add_widget(self.return_to_menu_button)
+        self.gameover_box.add_widget(self.exit_game)
 
         # Update the layout based on the user's choice
         if instance.text == "No":
@@ -887,10 +1017,8 @@ class MyApp(App):
         self.box_layout.add_widget(self.gameover_box)
 
     def close_app(self, *args):
-
-        # Stop the running app and exit the system
+        update_highscore(self.pb, self.difficulty)
         App.get_running_app().stop()
-        sys.exit()
 
 if __name__ == '__main__':
 
